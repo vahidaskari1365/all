@@ -1,5 +1,5 @@
 import { drizzle } from "drizzle-orm/node-postgres";
-import { Pool } from "pg";
+import { Pool, QueryArrayResult } from "pg";
 
 const databaseUrl = process.env.DATABASE_URL;
 
@@ -24,10 +24,17 @@ if (databaseUrl) {
     connectionString: "postgresql://localhost:5432/mock",
   });
 
-  // Mock the query method to return empty results
-  const originalQuery = pool.query.bind(pool);
-  pool.query = async (...args: any[]) => {
-    return { rows: [], command: "SELECT", rowCount: 0 };
+  // Mock the query method to return empty results with correct type shape
+  const mockResult: QueryArrayResult<any> = {
+    rows: [],
+    command: "SELECT",
+    rowCount: 0,
+    oid: undefined,
+    fields: [],
+  };
+
+  pool.query = async () => {
+    return mockResult;
   };
 }
 
