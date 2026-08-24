@@ -29,8 +29,8 @@ if (databaseUrl) {
     rows: [],
     command: "SELECT",
     rowCount: 0,
-    oid: undefined,
-    fields: [],
+    oid: 0 as number,
+    fields: [] as any[],
   };
 
   pool.query = async () => {
