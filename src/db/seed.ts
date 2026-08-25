@@ -1,13 +1,22 @@
 import "dotenv/config";
 import { db } from "@/db";
 import {
+  admins,
+  blogPosts,
   businesses,
   categories,
   cities,
-  showcaseItems,
+  designerPortfolios,
+  designers,
   owners,
+  plans,
+  referrals,
+  reports,
+  showcaseItems,
+  subscriptions,
 } from "@/db/schema";
 import { hashPassword } from "@/lib/auth";
+import { eq } from "drizzle-orm";
 
 type CatDef = { name: string; slug: string; icon: string; color: string };
 const CATS: CatDef[] = [
@@ -375,8 +384,16 @@ const BIZ: BizDef[] = [
 async function main() {
   console.log("🧹 پاک‌سازی داده‌های قدیمی…");
   await db.delete(showcaseItems);
+  await db.delete(reports);
+  await db.delete(referrals);
+  await db.delete(subscriptions);
   await db.delete(businesses);
   await db.delete(owners);
+  await db.delete(designerPortfolios);
+  await db.delete(designers);
+  await db.delete(plans);
+  await db.delete(blogPosts);
+  await db.delete(admins);
   await db.delete(categories);
   await db.delete(cities);
 
@@ -386,23 +403,202 @@ async function main() {
   console.log("🏷️  درج دسته‌ها…");
   await db.insert(categories).values(CATS);
 
-  console.log("👤 ساخت مالک نمونه…");
+  console.log("🛡️  ساخت مدیر سامانه…");
+  await db.insert(admins).values({
+    name: "مدیر کل سامانه",
+    email: "admin@kasbyab.ir",
+    passwordHash: hashPassword("Admin@1234"),
+    role: "superadmin",
+    active: true,
+  });
+
+  console.log("👤 ساخت مالکان نمونه…");
   const [owner] = await db
     .insert(owners)
-    .values({
-      name: "کاربر نمونه",
-      phone: "09120000000",
-      passwordHash: hashPassword("123456"),
-      approved: true,
-    })
+    .values([
+      {
+        name: "کاربر نمونه",
+        phone: "09120000000",
+        passwordHash: hashPassword("123456"),
+        approved: true,
+      },
+      {
+        name: "کاربر در انتظار تأیید",
+        phone: "09121111111",
+        passwordHash: hashPassword("123456"),
+        approved: false,
+      },
+    ])
     .returning({ id: owners.id });
   const ownerId = owner?.id ?? null;
 
+  console.log("📦 درج پلن‌های اشتراک…");
+  await db.insert(plans).values([
+    {
+      name: "رایگان",
+      slug: "free",
+      priceMonthly: 0,
+      sortOrder: 0,
+      features: JSON.stringify([
+        "پروفایل و کارت معرفی",
+        "لینک اختصاصی و QR",
+        "تماس و مسیریابی",
+        "۴ آیتم در ویترین",
+      ]),
+    },
+    {
+      name: "پایه",
+      slug: "basic",
+      priceMonthly: 99_000,
+      sortOrder: 1,
+      features: JSON.stringify([
+        "گالری تصاویر بیشتر (تا ۳۰)",
+        "معرفی محصولات و خدمات",
+        "درج قیمت‌ها",
+        "نشان ویترین حرفه‌ای",
+      ]),
+    },
+    {
+      name: "حرفه‌ای",
+      slug: "pro",
+      priceMonthly: 249_000,
+      sortOrder: 2,
+      features: JSON.stringify([
+        "همه امکانات پایه",
+        "گالری نامحدود",
+        "توضیحات کامل‌تر خدمات",
+        "جایگاه ویژه در نتایج",
+        "آمار بازدید پروفایل",
+      ]),
+    },
+    {
+      name: "طلایی",
+      slug: "gold",
+      priceMonthly: 499_000,
+      sortOrder: 3,
+      features: JSON.stringify([
+        "همه امکانات حرفه‌ای",
+        "ویدئوی معرفی (فاز بعدی)",
+        "پشتیبانی اختصاصی",
+        "نشان کسب‌وکار ویژه",
+      ]),
+    },
+  ]);
+
+  console.log("🎨 ساخت طراحان نمونه…");
+  await db.insert(designers).values([
+    {
+      name: "آرش طراح‌نژاد",
+      phone: "09123334444",
+      passwordHash: hashPassword("123456"),
+      slug: "arash-tarrahi",
+      bio: "طراح کارت‌ویزیت با ۸ سال سابقه؛ متخصص هویت بصری کسب‌وکارهای خدماتی.",
+      referralCode: "arash20",
+      points: 40,
+      approved: true,
+      featured: true,
+    },
+    {
+      name: "نگین هنری",
+      phone: "09125556666",
+      passwordHash: hashPassword("123456"),
+      slug: "negin-honari",
+      bio: "گرافیست و طراح کارت‌ویزیت مینیمال؛ نمونه‌کارهای متعدد برای کافه‌ها و رستوران‌ها.",
+      referralCode: "negin15",
+      points: 30,
+      approved: true,
+      featured: true,
+    },
+    {
+      name: "استودیو طرح‌مهر",
+      phone: "09127778888",
+      passwordHash: hashPassword("123456"),
+      slug: "tarh-mehr-studio",
+      bio: "استودیو تخصصی طراحی کارت‌ویزیت و اقلام چاپی.",
+      referralCode: "mehr10",
+      points: 0,
+      approved: false,
+      featured: false,
+    },
+  ]);
+
+  const designerRows = await db.select().from(designers);
+  const d1Id = designerRows.find((d) => d.slug === "arash-tarrahi")?.id;
+  const d2Id = designerRows.find((d) => d.slug === "negin-honari")?.id;
+  const d3Id = designerRows.find((d) => d.slug === "tarh-mehr-studio")?.id;
+
+  await db.insert(designerPortfolios).values([
+    { designerId: d1Id!, title: "کارت‌ویزیت رستوران سنتی", imageUrl: IMG.restaurant[2], approved: true, points: 10 },
+    { designerId: d1Id!, title: "کارت‌ویزیت کلینیک زیبایی", imageUrl: IMG.beauty[2], approved: true, points: 10 },
+    { designerId: d1Id!, title: "کارت‌ویزیت استودیو عکاسی", imageUrl: IMG.studio[0], approved: true, points: 10 },
+    { designerId: d1Id!, title: "کارت‌ویزیت کافه", imageUrl: IMG.restaurant[3], approved: true, points: 10 },
+    { designerId: d2Id!, title: "کارت‌ویزیت بوتیک", imageUrl: IMG.fashion[1], approved: true, points: 10 },
+    { designerId: d2Id!, title: "کارت‌ویزیت باشگاه", imageUrl: IMG.fitness[1], approved: true, points: 10 },
+    { designerId: d2Id!, title: "کارت‌ویزیت موبایل‌سنتر", imageUrl: IMG.digital[1], approved: true, points: 10 },
+    { designerId: d3Id!, title: "نمونه‌کار جدید (در انتظار تأیید)", imageUrl: IMG.fashion[0], approved: false, points: 10 },
+  ]);
+
+  console.log("📝 درج مطالب بلاگ…");
+  await db.insert(blogPosts).values([
+    {
+      title: "چرا کسب‌وکار شما به یک لینک اختصاصی و QR نیاز دارد؟",
+      slug: "why-business-needs-qr-link",
+      excerpt: "در دنیایی که همه‌چیز دیجیتال شده، کارت معرفی آنلاین سریع‌ترین مسیر ارتباط با مشتری است.",
+      coverUrl: IMG.digital[0],
+      published: true,
+      content:
+        "لینک اختصاصی و QR کسب‌وکار یعنی مشتری با یک اسکن، به‌جای جست‌وجوی طولانی، مستقیم به صفحه معرفی شما می‌رسد؛ تماس می‌گیرد، مسیر را پیدا می‌کند و شبکه‌های اجتماعی شما را می‌بیند.\n\nاین صفحه همیشه به‌روز است؛ برخلاف کارت چاپی که با تغییر شماره یا آدرس باطل می‌شود، لینک شما همیشه معتبر می‌ماند.",
+    },
+    {
+      title: "نشان‌های اعتماد کسب‌یاب چگونه کار می‌کنند؟",
+      slug: "how-trust-badges-work",
+      excerpt: "تفاوت «تأیید پلتفرم» با نشان‌های اظهاری مانند جواز و اتحادیه چیست؟",
+      coverUrl: IMG.clinic[0],
+      published: true,
+      content:
+        "در کسب‌یاب شفافیت حرف اول را می‌زند. نشان «تأیید پلتفرم» یعنی تیم ما هویت و مدارک کسب‌وکار را بررسی کرده است؛ اما نشان‌هایی مانند جواز کسب، عضویت در اتحادیه یا ضمانت، بر اساس اظهار خود کسب‌وکار نمایش داده می‌شوند.\n\nاین تفکیک باعث می‌شود کاربر با آگاهی کامل تصمیم بگیرد.",
+    },
+    {
+      title: "ویترین حرفه‌ای چه مزیتی برای کسب‌وکار من دارد؟",
+      slug: "why-professional-showcase",
+      excerpt: "با فعال‌سازی ویترین، محصولات و قیمت‌های خود را مستقیم در نتایج جست‌وجو نمایش دهید.",
+      coverUrl: IMG.restaurant[0],
+      published: true,
+      content:
+        "کسب‌وکارها بدون اشتراک هم پروفایل و کارت معرفی دارند؛ اما ویترین حرفه‌ای یعنی گالری تصاویر بیشتر، معرفی محصول و خدمات، درج قیمت‌ها و جایگاه بهتر در نتایج.\n\nاین امکانات برای کاربران به‌معنای تصمیم‌گیری سریع‌تر و برای شما به‌معنای مشتری بیشتر است.",
+    },
+    {
+      title: "راهنمای شروع برای صاحبان کسب‌وکار",
+      slug: "getting-started-for-owners",
+      excerpt: "در پنج گام ساده کسب‌وکار خود را در کسب‌یاب ثبت و معرفی کنید.",
+      coverUrl: IMG.training[0],
+      published: false,
+      content: "این مطلب به‌زودی منتشر می‌شود.",
+    },
+  ]);
+
   const cityRows = await db.select().from(cities);
   const catRows = await db.select().from(categories);
+  const planRows = await db.select().from(plans);
+  const proPlan = planRows.find((p) => p.slug === "pro");
+  const basicPlan = planRows.find((p) => p.slug === "basic");
+
+  // مختصات تقریبی مراکز شهرها برای پیوند مسیریابی
+  const CITY_COORDS: Record<string, [string, string]> = {
+    tehran: ["35.715298", "51.404343"],
+    isfahan: ["32.654627", "51.667983"],
+    shiraz: ["29.591768", "52.583698"],
+    mashhad: ["36.260462", "59.616755"],
+    tabriz: ["38.080266", "46.291219"],
+    karaj: ["35.840019", "50.939091"],
+    ahvaz: ["31.318327", "48.670619"],
+    qom: ["34.639999", "50.875942"],
+  };
 
   console.log(`🏢 درج ${BIZ.length} کسب‌وکار…`);
   // سه کسب‌وکار نخست به مالک نمونه اختصاص می‌یابند
+  let firstBizId: number | null = null;
+  let secondBizId: number | null = null;
   for (let i = 0; i < BIZ.length; i++) {
     const d = BIZ[i];
     const catId = catRows.find((c) => c.slug === d.cat)?.id;
@@ -413,6 +609,7 @@ async function main() {
     }
     const images = IMG[d.cat] ?? IMG.restaurant;
     const cover = images[i % images.length];
+    const coords = CITY_COORDS[d.city] ?? null;
     const [created] = await db
       .insert(businesses)
       .values({
@@ -430,8 +627,8 @@ async function main() {
         website: null,
         logoUrl: null,
         coverUrl: cover,
-        lat: null,
-        lng: null,
+        lat: coords ? coords[0] : null,
+        lng: coords ? coords[1] : null,
         instagram: d.slug.replace(/-/g, "_"),
         telegram: d.slug.replace(/-/g, "_"),
         whatsapp: `98912${Math.floor(1000000 + Math.random() * 8999999)}`,
@@ -444,26 +641,96 @@ async function main() {
         reviewCount: d.reviews,
         featured: !!d.featured,
         verified: !!d.verified,
+        // دهمین کسب‌وکار به‌عنوان «در انتظار تأیید» نمونه باقی می‌ماند
+        status: i === 9 ? "pending" : "active",
         ownerId: i < 3 ? ownerId : null,
       })
       .returning({ id: businesses.id });
 
-    if (created && d.items?.length) {
-      for (const it of d.items) {
-        await db.insert(showcaseItems).values({
-          businessId: created.id,
-          type: it.type,
-          title: it.title,
-          description: it.description ?? null,
-          imageUrl: it.imageUrl ?? null,
-          price: it.price ?? null,
-          unit: it.unit ?? null,
-        });
+    if (created) {
+      if (i === 0) firstBizId = created.id;
+      if (i === 1) secondBizId = created.id;
+      if (d.items?.length) {
+        for (const it of d.items) {
+          await db.insert(showcaseItems).values({
+            businessId: created.id,
+            type: it.type,
+            title: it.title,
+            description: it.description ?? null,
+            imageUrl: it.imageUrl ?? null,
+            price: it.price ?? null,
+            unit: it.unit ?? null,
+          });
+        }
       }
     }
   }
 
+  console.log("💳 درج اشتراک‌ها…");
+  if (firstBizId && proPlan) {
+    await db.insert(subscriptions).values({
+      businessId: firstBizId,
+      planId: proPlan.id,
+      status: "active",
+      startedAt: new Date(),
+      endsAt: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000),
+    });
+  }
+  if (secondBizId && basicPlan) {
+    await db.insert(subscriptions).values({
+      businessId: secondBizId,
+      planId: basicPlan.id,
+      status: "pending",
+    });
+  }
+
+  console.log("🤝 درج معرفی‌ها…");
+  if (secondBizId && d1Id) {
+    const [sub] = await db
+      .select({ id: subscriptions.id })
+      .from(subscriptions)
+      .where(eq(subscriptions.businessId, secondBizId))
+      .limit(1);
+    if (sub) {
+      await db.insert(referrals).values({
+        designerId: d1Id,
+        businessId: secondBizId,
+        subscriptionId: sub.id,
+        status: "pending",
+        commissionRate: 10,
+      });
+    }
+  }
+
+  console.log("🚩 درج گزارش‌های نمونه…");
+  if (firstBizId) {
+    await db.insert(reports).values([
+      {
+        businessId: firstBizId,
+        reporterName: "رضا محمدی",
+        category: "wrong-info",
+        message: "شماره تماس درج‌شده در صفحه این کسب‌وکار پاسخگو نیست.",
+        status: "pending",
+      },
+    ]);
+  }
+  if (secondBizId) {
+    await db.insert(reports).values([
+      {
+        businessId: secondBizId,
+        reporterName: "مریم احمدی",
+        category: "closed",
+        message: "این مجموعه مدتی است تعطیل شده است.",
+        status: "resolved",
+        adminNote: "با صاحب کسب‌وکار تماس گرفته شد؛ اطلاعات به‌روزرسانی شد.",
+        resolvedAt: new Date(),
+      },
+    ]);
+  }
+
   console.log("✅ دانه‌کاری پایان یافت.");
+  console.log("   مدیر: admin@kasbyab.ir / Admin@1234");
+  console.log("   مالک نمونه: 09120000000 / 123456");
   process.exit(0);
 }
 

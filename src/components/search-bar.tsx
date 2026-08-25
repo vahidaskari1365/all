@@ -1,22 +1,42 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Search, MapPin, Locate, ChevronDown } from "lucide-react";
 import type { CategoryRow, CityRow } from "@/lib/queries";
 
+export type SearchBarInitial = {
+  q?: string;
+  city?: string;
+  cat?: string;
+};
+
 export function SearchBar({
   cities,
   categories,
+  initial,
+  variant = "hero",
 }: {
   cities: CityRow[];
   categories: CategoryRow[];
+  initial?: SearchBarInitial;
+  variant?: "hero" | "results";
 }) {
   const router = useRouter();
-  const [q, setQ] = useState("");
-  const [city, setCity] = useState("");
-  const [category, setCategory] = useState("");
+  const [q, setQ] = useState(initial?.q ?? "");
+  const [city, setCity] = useState(initial?.city ?? "");
+  const [category, setCategory] = useState(initial?.cat ?? "");
   const [located, setLocated] = useState(false);
+
+  // همگام‌سازی با URL هنگام پیمایش بین فیلترها
+  // (الگوی رسمی React: تنظیم state در حین render به‌جای effect)
+  const [prevInitial, setPrevInitial] = useState(initial);
+  if (prevInitial !== initial) {
+    setPrevInitial(initial);
+    setQ(initial?.q ?? "");
+    setCity(initial?.city ?? "");
+    setCategory(initial?.cat ?? "");
+  }
 
   function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -30,8 +50,93 @@ export function SearchBar({
   function useLocation() {
     if (typeof navigator === "undefined" || !navigator.geolocation) return;
     navigator.geolocation.getCurrentPosition(
-      () => setLocated(true),
+      (pos) => {
+        setLocated(true);
+        // ثبت موقعیت برای فاز دوم (جست‌وجوی «اطراف من»)
+        sessionStorage.setItem(
+          "kasbyab:location",
+          JSON.stringify({
+            lat: pos.coords.latitude,
+            lng: pos.coords.longitude,
+          })
+        );
+      },
       () => setLocated(false)
+    );
+  }
+
+  if (variant === "results") {
+    return (
+      <form onSubmit={submit} className="card w-full p-2">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+          <label className="relative flex-1">
+            <span className="sr-only">جست‌وجوی کسب‌وکار</span>
+            <Search className="pointer-events-none absolute right-3 top-1/2 h-5 w-5 -translate-y-1/2 text-primary" />
+            <input
+              type="text"
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              placeholder="نام کسب‌وکار، خدمت یا محله…"
+              className="h-12 w-full rounded-xl bg-slate-50 pr-11 pl-4 text-sm text-ink placeholder:text-slate-400 outline-none ring-1 ring-slate-200 transition focus:ring-2 focus:ring-primary"
+            />
+          </label>
+          <div className="flex gap-2">
+            <label className="relative flex-1 sm:w-44">
+              <span className="sr-only">انتخاب شهر</span>
+              <select
+                value={city}
+                onChange={(e) => setCity(e.target.value)}
+                className="h-12 w-full cursor-pointer appearance-none rounded-xl bg-slate-50 px-3 text-sm font-medium text-ink outline-none ring-1 ring-slate-200 transition focus:ring-2 focus:ring-primary"
+              >
+                <option value="">همه شهرها</option>
+                {cities.map((c) => (
+                  <option key={c.id} value={c.slug}>
+                    {c.name}
+                  </option>
+                ))}
+              </select>
+              <ChevronDown className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            </label>
+            <label className="relative flex-1 sm:w-44">
+              <span className="sr-only">نوع خدمت</span>
+              <select
+                value={category}
+                onChange={(e) => setCategory(e.target.value)}
+                className="h-12 w-full cursor-pointer appearance-none rounded-xl bg-slate-50 px-3 text-sm font-medium text-ink outline-none ring-1 ring-slate-200 transition focus:ring-2 focus:ring-primary"
+              >
+                <option value="">همه خدمات</option>
+                {categories.map((c) => (
+                  <option key={c.id} value={c.slug}>
+                    {c.name}
+                  </option>
+                ))}
+              </select>
+              <ChevronDown className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            </label>
+            <button
+              type="submit"
+              className="flex h-12 shrink-0 cursor-pointer items-center justify-center gap-2 rounded-xl bg-primary px-5 text-sm font-bold text-white shadow-lg shadow-primary-600/30 transition-transform hover:scale-[1.02] active:scale-95"
+            >
+              <Search className="h-5 w-5" />
+              <span className="hidden sm:inline">جست‌وجو</span>
+            </button>
+          </div>
+        </div>
+        <div className="mt-2 flex items-center justify-between px-1">
+          <button
+            type="button"
+            onClick={useLocation}
+            className={`inline-flex min-h-11 cursor-pointer items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition ${
+              located
+                ? "bg-primary-50 text-primary-700"
+                : "text-slate-500 hover:bg-slate-50"
+            }`}
+          >
+            <Locate className="h-3.5 w-3.5" />
+            {located ? "موقعیت شما فعال شد" : "بر اساس موقعیت من"}
+          </button>
+        </div>
+      </form>
     );
   }
 
@@ -98,7 +203,7 @@ export function SearchBar({
 
         <button
           type="submit"
-          className="flex h-12 items-center justify-center gap-2 rounded-xl bg-primary px-6 text-sm font-bold text-white shadow-lg shadow-primary-600/30 transition-transform hover:scale-[1.02] active:scale-95"
+          className="flex h-12 cursor-pointer items-center justify-center gap-2 rounded-xl bg-primary px-6 text-sm font-bold text-white shadow-lg shadow-primary-600/30 transition-transform hover:scale-[1.02] active:scale-95"
         >
           <Search className="h-5 w-5" />
           جست‌وجو
@@ -109,7 +214,7 @@ export function SearchBar({
         <button
           type="button"
           onClick={useLocation}
-          className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition ${
+          className={`inline-flex min-h-11 cursor-pointer items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition ${
             located
               ? "bg-primary-50 text-primary-700"
               : "text-slate-500 hover:bg-slate-50"

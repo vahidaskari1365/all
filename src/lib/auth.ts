@@ -6,14 +6,16 @@ import {
 } from "node:crypto";
 import { cookies } from "next/headers";
 import { db } from "@/db";
-import { owners } from "@/db/schema";
+import { admins, owners } from "@/db/schema";
 import { eq } from "drizzle-orm";
 
 const SECRET = process.env.AUTH_SECRET || "kasbyab-dev-secret-change-me";
-const COOKIE_NAME = "kasbyab_session";
-const MAX_AGE = 60 * 60 * 24 * 14; // ۱۴ روز
+const OWNER_COOKIE = "kasbyab_session";
+const ADMIN_COOKIE = "kasbyab_admin_session";
+const OWNER_MAX_AGE = 60 * 60 * 24 * 14; // ۱۴ روز
+const ADMIN_MAX_AGE = 60 * 60 * 12; // ۱۲ ساعت
 
-/** هش رمز عبور با scrypt */
+/** هش رمز عبور با scrypt (نمک تصادفی + timing-safe مقایسه) */
 export function hashPassword(password: string): string {
   const salt = randomBytes(16).toString("hex");
   const hash = scryptSync(password, salt, 64).toString("hex");
@@ -29,63 +31,118 @@ export function verifyPassword(password: string, stored: string): boolean {
   return timingSafeEqual(hashBuf, testBuf);
 }
 
-function signToken(payload: object): string {
+// ────────────────────────────────────────────────────────────
+// توکن امضاشده (HMAC-SHA256) برای سشن‌های کوکی
+// ────────────────────────────────────────────────────────────
+type TokenPayload = { sub: number; iat: number; exp: number; tf?: boolean };
+
+export function signToken(payload: object): string {
   const data = Buffer.from(JSON.stringify(payload)).toString("base64url");
   const sig = createHmac("sha256", SECRET).update(data).digest("base64url");
   return `${data}.${sig}`;
 }
 
-function verifyToken(token: string): { ownerId: number } | null {
+export function verifyToken<T>(token: string): T | null {
   const [data, sig] = token.split(".");
   if (!data || !sig) return null;
   const expected = createHmac("sha256", SECRET).update(data).digest("base64url");
-  if (sig.length !== expected.length || !timingSafeEqual(Buffer.from(sig), Buffer.from(expected))) {
-    return null;
-  }
+  const a = Buffer.from(sig);
+  const b = Buffer.from(expected);
+  if (a.length !== b.length || !timingSafeEqual(a, b)) return null;
   try {
     const parsed = JSON.parse(Buffer.from(data, "base64url").toString());
-    if (typeof parsed.ownerId === "number") return { ownerId: parsed.ownerId };
-    return null;
+    if (typeof parsed.exp === "number" && parsed.exp < Date.now()) return null;
+    return parsed as T;
   } catch {
     return null;
   }
 }
 
-export async function setSession(ownerId: number) {
-  const store = await cookies();
-  const token = signToken({ ownerId, iat: Date.now() });
-  store.set(COOKIE_NAME, token, {
+function cookieBase() {
+  return {
     httpOnly: true,
-    sameSite: "lax",
+    sameSite: "lax" as const,
     secure: process.env.NODE_ENV === "production",
     path: "/",
-    maxAge: MAX_AGE,
+  };
+}
+
+// ────────────────────────────────────────────────────────────
+// سشن صاحبان کسب‌وکار
+// ────────────────────────────────────────────────────────────
+export async function setSession(ownerId: number) {
+  const store = await cookies();
+  const token = signToken({
+    sub: ownerId,
+    iat: Date.now(),
+    exp: Date.now() + OWNER_MAX_AGE * 1000,
+  });
+  store.set(OWNER_COOKIE, token, {
+    ...cookieBase(),
+    maxAge: OWNER_MAX_AGE,
   });
 }
 
 export async function clearSession() {
   const store = await cookies();
-  store.delete(COOKIE_NAME);
+  store.delete(OWNER_COOKIE);
 }
 
 export async function getCurrentOwner() {
   try {
     const store = await cookies();
-    const token = store.get(COOKIE_NAME)?.value;
+    const token = store.get(OWNER_COOKIE)?.value;
     if (!token) return null;
-    const payload = verifyToken(token);
+    const payload = verifyToken<TokenPayload>(token);
     if (!payload) return null;
     const [owner] = await db
       .select()
       .from(owners)
-      .where(eq(owners.id, payload.ownerId));
+      .where(eq(owners.id, payload.sub));
     return owner ?? null;
   } catch {
     return null;
   }
 }
 
-export function parseSessionCookie(raw: string | undefined) {
-  if (!raw) return null;
-  return verifyToken(raw);
+// ────────────────────────────────────────────────────────────
+// سشن مدیران (با پرچم تأیید دومرحله‌ای)
+// ────────────────────────────────────────────────────────────
+export async function setAdminSession(adminId: number, twoFactorOk: boolean) {
+  const store = await cookies();
+  const token = signToken({
+    sub: adminId,
+    iat: Date.now(),
+    exp: Date.now() + ADMIN_MAX_AGE * 1000,
+    tf: twoFactorOk,
+  });
+  store.set(ADMIN_COOKIE, token, {
+    ...cookieBase(),
+    maxAge: ADMIN_MAX_AGE,
+  });
+}
+
+export async function clearAdminSession() {
+  const store = await cookies();
+  store.delete(ADMIN_COOKIE);
+}
+
+export async function getCurrentAdmin() {
+  try {
+    const store = await cookies();
+    const token = store.get(ADMIN_COOKIE)?.value;
+    if (!token) return null;
+    const payload = verifyToken<TokenPayload>(token);
+    if (!payload) return null;
+    const [admin] = await db
+      .select()
+      .from(admins)
+      .where(eq(admins.id, payload.sub));
+    if (!admin || !admin.active) return null;
+    // اگر برای این مدیر احراز دومرحله‌ای فعال است، سشن باید پرچم تأیید داشته باشد
+    if (admin.totpEnabled && !payload.tf) return null;
+    return admin;
+  } catch {
+    return null;
+  }
 }

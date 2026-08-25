@@ -16,8 +16,8 @@ import {
 const NAV = [
   { href: "/", label: "خانه" },
   { href: "/search", label: "کسب‌وکارها" },
-  { href: "/#categories", label: "دسته‌بندی‌ها" },
-  { href: "/#how", label: "چطور کار می‌کند" },
+  { href: "/designers", label: "طراحان" },
+  { href: "/blog", label: "بلاگ" },
 ];
 
 export function HeaderNav({

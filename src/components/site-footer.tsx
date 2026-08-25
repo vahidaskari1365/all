@@ -4,7 +4,7 @@ import { InstagramIcon, TelegramIcon } from "@/components/brand-icons";
 
 export function SiteFooter() {
   return (
-    <footer className="mt-20 border-t border-slate-200 bg-white">
+    <footer className="mt-20 border-t border-slate-200 bg-white pb-20 md:pb-0">
       <div className="container-px mx-auto grid max-w-7xl gap-10 py-12 md:grid-cols-2 lg:grid-cols-4">
         <div className="space-y-4">
           <Link href="/" className="flex items-center gap-2.5">
@@ -43,8 +43,8 @@ export function SiteFooter() {
           <ul className="space-y-3 text-sm text-slate-500">
             <li><Link href="/" className="transition-colors hover:text-primary-700">خانه</Link></li>
             <li><Link href="/search" className="transition-colors hover:text-primary-700">جست‌وجوی کسب‌وکار</Link></li>
-            <li><Link href="/#categories" className="transition-colors hover:text-primary-700">دسته‌بندی‌ها</Link></li>
-            <li><Link href="/owner" className="transition-colors hover:text-primary-700">ثبت کسب‌وکار</Link></li>
+            <li><Link href="/designers" className="transition-colors hover:text-primary-700">طراحان کارت‌ویزیت</Link></li>
+            <li><Link href="/blog" className="transition-colors hover:text-primary-700">بلاگ</Link></li>
           </ul>
         </div>
 
@@ -76,7 +76,10 @@ export function SiteFooter() {
 
       <div className="border-t border-slate-100">
         <div className="container-px mx-auto flex max-w-7xl flex-col items-center justify-between gap-2 py-5 text-xs text-slate-400 sm:flex-row">
-          <p>© ۱۴۰۳ کسب‌یاب — تمامی حقوق محفوظ است.</p>
+          <p>
+            © {new Intl.DateTimeFormat("fa-IR-u-ca-persian", { year: "numeric" }).format(new Date())}{" "}
+            کسب‌یاب — تمامی حقوق محفوظ است.
+          </p>
           <p className="text-center">
             اطلاعات نمایش‌داده‌شده بر اساس اظهار کسب‌وکارهاست و تأیید کاملِ کسب‌یاب
             محسوب نمی‌شود.

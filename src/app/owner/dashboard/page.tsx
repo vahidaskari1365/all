@@ -1,12 +1,18 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { ShieldCheck } from "lucide-react";
+import { ShieldCheck, Hourglass } from "lucide-react";
 import { getCurrentOwner } from "@/lib/auth";
 import { LogoutButton } from "@/components/logout-button";
 import { db } from "@/db";
 import { businesses, showcaseItems } from "@/db/schema";
 import { eq } from "drizzle-orm";
-import { getCategories, getCities } from "@/lib/queries";
+import {
+  getActiveSubscription,
+  getCategories,
+  getCities,
+  getLatestSubscription,
+  getPlans,
+} from "@/lib/queries";
 import { OwnerDashboard } from "@/components/owner-dashboard";
 
 export const dynamic = "force-dynamic";
@@ -15,7 +21,7 @@ export default async function DashboardPage() {
   const owner = await getCurrentOwner();
   if (!owner) redirect("/owner");
 
-  const [rows, categories, cities] = await Promise.all([
+  const [rows, categories, cities, plans] = await Promise.all([
     db
       .select()
       .from(businesses)
@@ -23,6 +29,7 @@ export default async function DashboardPage() {
       .orderBy(businesses.createdAt),
     getCategories(),
     getCities(),
+    getPlans(),
   ]);
 
   // بارگذاری آیتم‌های ویترین هر کسب‌وکار
@@ -36,7 +43,18 @@ export default async function DashboardPage() {
     )
   );
 
-  const businessesWithItems = rows.map((b, i) => ({
+  // وضعیت اشتراک هر کسب‌وکار
+  const subsByBiz = await Promise.all(
+    rows.map(async (b) => {
+      const [active, latest] = await Promise.all([
+        getActiveSubscription(b.id),
+        getLatestSubscription(b.id),
+      ]);
+      return { active, latest };
+    })
+  );
+
+  const businessesWithMeta = rows.map((b, i) => ({
     ...b,
     category: categories.find((c) => c.id === b.categoryId) ?? null,
     city: cities.find((c) => c.id === b.cityId) ?? null,
@@ -49,28 +67,46 @@ export default async function DashboardPage() {
       price: it.price,
       unit: it.unit,
     })),
+    subscription: subsByBiz[i].active,
+    latestSubscription: subsByBiz[i].latest,
   }));
 
   return (
     <>
       <div className="border-b border-slate-200 bg-white">
-        <div className="container-px mx-auto flex max-w-6xl items-center justify-between py-3">
-          <span className="flex items-center gap-1.5 text-xs font-bold text-primary-700">
-            <ShieldCheck className="h-4 w-4" />
-            حساب شما تأیید شده است — پنل فعال
-          </span>
-          <LogoutButton />
+        <div className="container-px mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-2 py-3">
+          {owner.approved ? (
+            <span className="flex items-center gap-1.5 text-xs font-bold text-primary-700">
+              <ShieldCheck className="h-4 w-4" />
+              حساب شما تأیید شده است
+            </span>
+          ) : (
+            <span className="flex items-center gap-1.5 text-xs font-bold text-amber-600">
+              <Hourglass className="h-4 w-4" />
+              حساب شما در انتظار تأیید مدیریت است — ثبت کسب‌وکار پس از تأیید فعال
+              می‌شود.
+            </span>
+          )}
+          <div className="flex items-center gap-2">
+            <Link
+              href="/owner"
+              className="hidden text-xs font-bold text-slate-400 hover:text-slate-600 sm:block"
+            >
+              صفحه ورود
+            </Link>
+            <LogoutButton />
+          </div>
         </div>
       </div>
 
       <OwnerDashboard
         ownerName={owner.name}
-        businesses={businessesWithItems}
+        ownerApproved={owner.approved}
+        businesses={businessesWithMeta}
         categories={categories}
         cities={cities}
+        plans={plans}
       />
     </>
   );
 }
-
-

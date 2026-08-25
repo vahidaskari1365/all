@@ -13,13 +13,26 @@ if (databaseUrl) {
     globalForDb.__arenaNextJsPostgresqlPool ??
     new Pool({
       connectionString: databaseUrl,
+      max: 10,
     });
 
   if (process.env.NODE_ENV !== "production") {
     globalForDb.__arenaNextJsPostgresqlPool = pool;
   }
+} else if (process.env.NODE_ENV === "production") {
+  // در production نبودِ DATABASE_URL خطای صریح است؛
+  // سایت نباید بی‌صدا با داده خالی بالا بیاید.
+  throw new Error(
+    "DATABASE_URL is required in production. Set it in the environment."
+  );
 } else {
-  // Mock pool for development without database
+  // حالت توسعه بدون دیتابیس — فقط برای پیش‌نمایش UI خالی
+  if (!(globalThis as any).__kasbyabMockWarned) {
+    (globalThis as any).__kasbyabMockWarned = true;
+    console.warn(
+      "[db] DATABASE_URL is not set — using an empty mock pool (dev only)."
+    );
+  }
   pool = new Pool({
     connectionString: "postgresql://localhost:5432/mock",
   });
