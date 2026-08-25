@@ -9,6 +9,7 @@ import {
   plans,
   showcaseItems,
   subscriptions,
+  orders,
 } from "@/db/schema";
 import { and, desc, eq, ilike, or, sql, asc, ne, gte, lte } from "drizzle-orm";
 
@@ -88,6 +89,8 @@ export type PlanRow = {
   sortOrder: number;
 };
 
+export type OrderRow = typeof orders.$inferSelect;
+
 /**
  * خواندن امن برای صفحات عمومی.
  *
@@ -153,6 +156,44 @@ export async function getCities(): Promise<CityRow[]> {
   return rows;
 }
 
+/** تعداد کسب‌وکارهای فعال هر شهر برای نقشه‌ی ایران */
+export async function getCityBusinessCounts(): Promise<Record<string, number>> {
+  const counts = await safeRead<Record<string, number>>({}, async () => {
+    const rows = await db
+      .select({
+        slug: cities.slug,
+        count: sql<number>`count(${businesses.id})::int`,
+      })
+      .from(cities)
+      .leftJoin(
+        businesses,
+        and(eq(businesses.cityId, cities.id), eq(businesses.status, "active"))
+      )
+      .groupBy(cities.id, cities.slug);
+    return Object.fromEntries(rows.map((row) => [row.slug, row.count]));
+  });
+
+  // در اولین اجرای پروژه یا زمان قطعی دیتابیس، نقشه همچنان نمونه‌های قابل‌دیدن
+  // دارد؛ به‌محض وجود داده‌ی واقعی، همین داده جایگزین می‌شود.
+  if (Object.values(counts).reduce((sum, value) => sum + value, 0) === 0) {
+    const { FALLBACK_CITIES } = await import("@/lib/fallback-data");
+    const sampleCounts: Record<string, number> = {
+      tehran: 9,
+      isfahan: 4,
+      shiraz: 4,
+      mashhad: 3,
+      tabriz: 3,
+      karaj: 3,
+      ahvaz: 2,
+      qom: 2,
+    };
+    return Object.fromEntries(
+      FALLBACK_CITIES.map((city) => [city.slug, sampleCounts[city.slug] ?? 0])
+    );
+  }
+  return counts;
+}
+
 export function enrichBusinesses(
   list: BusinessRow[],
   cats: CategoryRow[],
@@ -168,8 +209,8 @@ export function enrichBusinesses(
 export async function getFeaturedBusinesses(
   limit = 8
 ): Promise<BusinessWithMeta[]> {
-  return safeRead<BusinessWithMeta[]>([], async () => {
-    const [rows, cats, cits] = await Promise.all([
+  const rows = await safeRead<BusinessWithMeta[]>([], async () => {
+    const [businessRows, cats, cits] = await Promise.all([
       db
         .select()
         .from(businesses)
@@ -179,8 +220,13 @@ export async function getFeaturedBusinesses(
       getCategories(),
       getCities(),
     ]);
-    return enrichBusinesses(rows, cats, cits);
+    return enrichBusinesses(businessRows, cats, cits);
   });
+  if (rows.length === 0) {
+    const { FALLBACK_BUSINESSES } = await import("@/lib/fallback-data");
+    return FALLBACK_BUSINESSES.slice(0, limit);
+  }
+  return rows;
 }
 
 export type SearchParams = {
@@ -205,7 +251,7 @@ export async function searchBusinesses(
   const { q, citySlug, categorySlug, limit = 40, onlyShowcase, filters } =
     params;
 
-  return safeRead<BusinessWithMeta[]>([], async () => {
+  const rows = await safeRead<BusinessWithMeta[]>([], async () => {
     const [cats, cits] = await Promise.all([getCategories(), getCities()]);
     const city = citySlug ? cits.find((c) => c.slug === citySlug) : undefined;
     const cat = categorySlug
@@ -233,22 +279,40 @@ export async function searchBusinesses(
       );
     }
 
-    const rows = await db
+    const businessRows = await db
       .select()
       .from(businesses)
       .where(and(...conds))
       .orderBy(desc(businesses.featured), desc(businesses.rating))
       .limit(limit);
 
-    return enrichBusinesses(rows, cats, cits);
+    return enrichBusinesses(businessRows, cats, cits);
   });
+
+  // جست‌وجوی آزاد در صورت نبود دیتابیس هنوز چند نمونه برای تست UI نشان می‌دهد؛
+  // برای عبارت متنی ناموجود، نتیجه‌ی خالی واقعی حفظ می‌شود.
+  if (rows.length === 0 && !q?.trim()) {
+    const { FALLBACK_BUSINESSES } = await import("@/lib/fallback-data");
+    return FALLBACK_BUSINESSES.filter((business) => {
+      if (citySlug && business.city?.slug !== citySlug) return false;
+      if (categorySlug && business.category?.slug !== categorySlug) return false;
+      if (onlyShowcase && !business.hasShowcase) return false;
+      if (filters?.license && !business.hasLicense) return false;
+      if (filters?.union && !business.unionMember) return false;
+      if (filters?.guarantee && !business.hasGuarantee) return false;
+      if (filters?.showcase && !business.hasShowcase) return false;
+      if (filters?.verified && !business.verified) return false;
+      return true;
+    }).slice(0, limit);
+  }
+  return rows;
 }
 
 export async function getBusinessBySlug(
   slug: string,
   { includePending = false } = {}
 ): Promise<BusinessWithMeta | null> {
-  return safeRead<BusinessWithMeta | null>(null, async () => {
+  const result = await safeRead<BusinessWithMeta | null>(null, async () => {
     const conds = [eq(businesses.slug, slug)];
     if (!includePending) conds.push(eq(businesses.status, "active"));
     const [row] = await db
@@ -260,6 +324,11 @@ export async function getBusinessBySlug(
     const [cats, cits] = await Promise.all([getCategories(), getCities()]);
     return enrichBusinesses([row], cats, cits)[0];
   });
+  if (!result) {
+    const { FALLBACK_BUSINESSES } = await import("@/lib/fallback-data");
+    return FALLBACK_BUSINESSES.find((business) => business.slug === slug) ?? null;
+  }
+  return result;
 }
 
 export async function getShowcaseItems(businessId: number) {
@@ -319,12 +388,12 @@ export async function getStats() {
     }
   ).then(async (s) => {
     // هماهنگ با فهرست‌های پشتیبان: آمار صفر نمایش داده نشود.
-    if (s.categories === 0 || s.cities === 0) {
-      const { FALLBACK_CATEGORIES, FALLBACK_CITIES } = await import(
+    if (s.businesses === 0 || s.categories === 0 || s.cities === 0) {
+      const { FALLBACK_BUSINESSES, FALLBACK_CATEGORIES, FALLBACK_CITIES } = await import(
         "@/lib/fallback-data"
       );
       return {
-        ...s,
+        businesses: s.businesses || FALLBACK_BUSINESSES.length,
         categories: s.categories || FALLBACK_CATEGORIES.length,
         cities: s.cities || FALLBACK_CITIES.length,
       };

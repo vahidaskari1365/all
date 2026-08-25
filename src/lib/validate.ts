@@ -31,9 +31,16 @@ export function isValidName(value: string, min = 3): boolean {
   return v.length >= min && /[\u0600-\u06FFa-zA-Z]/.test(v);
 }
 
+/** تبدیل اعداد فارسی و عربی به انگلیسی برای ورودی فرم‌ها */
+export function normalizeDigits(value: string): string {
+  return value
+    .replace(/[۰-۹]/g, (digit) => String("۰۱۲۳۴۵۶۷۸۹".indexOf(digit)))
+    .replace(/[٠-٩]/g, (digit) => String("٠١٢٣٤٥٦٧٨٩".indexOf(digit)));
+}
+
 /** شماره موبایل ایرانی */
 export function normalizePhone(value: string): string | null {
-  const v = cleanText(value, 40);
+  const v = normalizeDigits(cleanText(value, 40)).replace(/[\s-]/g, "");
   if (!PHONE_RE.test(v)) return null;
   return v.length === 10 ? `0${v}` : v;
 }

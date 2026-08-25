@@ -14,6 +14,7 @@ import {
   reports,
   showcaseItems,
   subscriptions,
+  orders,
 } from "@/db/schema";
 import { hashPassword } from "@/lib/auth";
 import { eq } from "drizzle-orm";
@@ -384,6 +385,7 @@ const BIZ: BizDef[] = [
 async function main() {
   console.log("🧹 پاک‌سازی داده‌های قدیمی…");
   await db.delete(showcaseItems);
+  await db.delete(orders);
   await db.delete(reports);
   await db.delete(referrals);
   await db.delete(subscriptions);
@@ -404,10 +406,18 @@ async function main() {
   await db.insert(categories).values(CATS);
 
   console.log("🛡️  ساخت مدیر سامانه…");
+  const adminEmail =
+    process.env.ADMIN_EMAIL?.trim().toLowerCase() || "admin@kasbyab.ir";
+  const adminPassword =
+    process.env.ADMIN_PASSWORD ||
+    (process.env.NODE_ENV === "production" ? "" : "Admin@1234");
+  if (adminPassword.length < 8) {
+    throw new Error("ADMIN_PASSWORD باید حداقل ۸ کاراکتر باشد.");
+  }
   await db.insert(admins).values({
     name: "مدیر کل سامانه",
-    email: "admin@kasbyab.ir",
-    passwordHash: hashPassword("Admin@1234"),
+    email: adminEmail,
+    passwordHash: hashPassword(adminPassword),
     role: "superadmin",
     active: true,
   });
@@ -728,8 +738,43 @@ async function main() {
     ]);
   }
 
+  console.log("🛒 درج سفارش‌های نمونه…");
+  if (firstBizId) {
+    await db.insert(orders).values({
+      orderNumber: "KSB-DEMO-1001",
+      businessId: firstBizId,
+      itemTitle: "چلوکباب مخصوص اصغر",
+      unitPrice: 385000,
+      totalAmount: 770000,
+      customerName: "علی رضایی",
+      customerPhone: "09121234567",
+      customerEmail: "ali@example.com",
+      service: "چلوکباب مخصوص اصغر",
+      quantity: 2,
+      requestedDate: "1405/01/18",
+      preferredTime: "۱۳:۰۰ تا ۱۴:۰۰",
+      deliveryAddress: "تهران، سعادت‌آباد، خیابان سرو",
+      note: "لطفاً قاشق و چنگال اضافه ارسال شود.",
+      status: "pending",
+    });
+  }
+  if (secondBizId) {
+    await db.insert(orders).values({
+      orderNumber: "KSB-DEMO-1002",
+      businessId: secondBizId,
+      customerName: "سارا کریمی",
+      customerPhone: "09129876543",
+      service: "رزرو وقت مشاوره",
+      quantity: 1,
+      requestedDate: "1405/01/20",
+      preferredTime: "۱۷:۳۰",
+      note: "برای خدمات رنگ و لایت وقت می‌خواهم.",
+      status: "confirmed",
+    });
+  }
+
   console.log("✅ دانه‌کاری پایان یافت.");
-  console.log("   مدیر: admin@kasbyab.ir / Admin@1234");
+  console.log(`   مدیر: ${adminEmail} / رمز تنظیم‌شده در ADMIN_PASSWORD`);
   console.log("   مالک نمونه: 09120000000 / 123456");
   process.exit(0);
 }

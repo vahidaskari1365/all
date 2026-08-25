@@ -136,6 +136,32 @@ export const reports = pgTable("business_reports", {
   resolvedAt: timestamp("resolved_at"),
 });
 
+/** سفارش‌ها و درخواست‌های مشتریان */
+export const orders = pgTable("orders", {
+  id: serial("id").primaryKey(),
+  orderNumber: varchar("order_number", { length: 32 }).notNull().unique(),
+  businessId: integer("business_id").notNull(),
+  itemId: integer("item_id"),
+  // عنوان و قیمت در لحظه‌ی ثبت ذخیره می‌شوند تا سابقه‌ی سفارش تغییر نکند.
+  itemTitle: varchar("item_title", { length: 160 }),
+  unitPrice: integer("unit_price"),
+  totalAmount: integer("total_amount"),
+  customerName: varchar("customer_name", { length: 120 }).notNull(),
+  customerPhone: varchar("customer_phone", { length: 40 }).notNull(),
+  customerEmail: varchar("customer_email", { length: 160 }),
+  service: varchar("service", { length: 180 }).notNull(),
+  quantity: integer("quantity").notNull().default(1),
+  requestedDate: varchar("requested_date", { length: 20 }),
+  preferredTime: varchar("preferred_time", { length: 40 }),
+  deliveryAddress: text("delivery_address"),
+  note: text("note"),
+  // pending | confirmed | completed | canceled
+  status: varchar("status", { length: 30 }).notNull().default("pending"),
+  ownerNote: text("owner_note"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
 /** پلن‌های اشتراک (ویترین حرفه‌ای) */
 export const plans = pgTable("plans", {
   id: serial("id").primaryKey(),

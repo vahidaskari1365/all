@@ -28,10 +28,12 @@ import type {
   CategoryRow,
   CityRow,
   PlanRow,
+  OrderRow,
 } from "@/lib/queries";
 import { CategoryIcon, CATEGORY_COLORS } from "@/components/category-icon";
 import { toFa } from "@/lib/utils";
 import { CardBuilder } from "@/components/card-builder";
+import { OwnerOrders } from "@/components/owner-orders";
 
 type Item = {
   id: number;
@@ -55,6 +57,7 @@ type Biz = BusinessWithMeta & {
   items: Item[];
   subscription: SubState;
   latestSubscription: { id: number; status: string } | null;
+  orders: OrderRow[];
 };
 
 type FormState = {
@@ -251,6 +254,7 @@ export function OwnerDashboard({
           items: [],
           subscription: null,
           latestSubscription: null,
+          orders: [],
         };
         setList((prev) => [nb, ...prev]);
       } else if (editing) {
@@ -618,6 +622,8 @@ export function OwnerDashboard({
                   </div>
                 )}
               </div>
+
+              <OwnerOrders initialOrders={b.orders} />
 
               <button
                 onClick={() => setShowcaseFor(open ? null : b.id)}

@@ -9,6 +9,7 @@ import {
   Hourglass,
   ShieldCheck,
   KeyRound,
+  ClipboardList,
 } from "lucide-react";
 import { getCurrentAdmin } from "@/lib/auth";
 import {
@@ -21,6 +22,7 @@ import {
   getAdminPlans,
   getAdminReferrals,
   getAdminReports,
+  getAdminOrders,
   getAdminStats,
   getAdminSubscriptions,
   getAuditLogs,
@@ -32,6 +34,7 @@ import { BusinessesTab } from "@/components/admin/businesses-tab";
 import { OwnersTab } from "@/components/admin/owners-tab";
 import { TaxonomyTab } from "@/components/admin/taxonomy-tab";
 import { ReportsTab } from "@/components/admin/reports-tab";
+import { OrdersTab } from "@/components/admin/orders-tab";
 import { PlansTab } from "@/components/admin/plans-tab";
 import { SubscriptionsTab } from "@/components/admin/subscriptions-tab";
 import { DesignersTab } from "@/components/admin/designers-tab";
@@ -48,6 +51,7 @@ const TABS = [
   "owners",
   "taxonomy",
   "reports",
+  "orders",
   "plans",
   "subscriptions",
   "designers",
@@ -86,11 +90,12 @@ export default async function AdminDashboardPage({
       const pendingBiz = businesses.filter((b) => b.status === "pending");
       content = (
         <div className="space-y-5">
-          <div className="grid grid-cols-2 gap-3 lg:grid-cols-3 xl:grid-cols-6">
+          <div className="grid grid-cols-2 gap-3 lg:grid-cols-3 xl:grid-cols-7">
             <StatCard icon={<Store className="h-5 w-5" />} label="کل کسب‌وکارها" value={stats.businesses} tone="bg-primary-50 text-primary-700" />
             <StatCard icon={<Hourglass className="h-5 w-5" />} label="در انتظار تأیید" value={stats.pendingBiz} tone="bg-amber-50 text-amber-700" />
             <StatCard icon={<Users className="h-5 w-5" />} label="کاربر در انتظار" value={stats.pendingOwners} tone="bg-sky-50 text-sky-700" />
             <StatCard icon={<Flag className="h-5 w-5" />} label="گزارش باز" value={stats.pendingReports} tone="bg-rose-50 text-rose-700" />
+            <StatCard icon={<ClipboardList className="h-5 w-5" />} label="سفارش جدید" value={stats.pendingOrders} tone="bg-orange-50 text-orange-700" />
             <StatCard icon={<CreditCard className="h-5 w-5" />} label="اشتراک فعال" value={stats.activeSubs} tone="bg-violet-50 text-violet-700" />
             <StatCard icon={<Palette className="h-5 w-5" />} label="نمونه‌کار در انتظار" value={stats.pendingDesigners} tone="bg-emerald-50 text-emerald-700" />
           </div>
@@ -219,6 +224,12 @@ export default async function AdminDashboardPage({
       title = "گزارش‌های مردمی";
       const reports = await getAdminReports();
       content = <ReportsTab reports={reports} />;
+      break;
+    }
+    case "orders": {
+      title = "سفارش‌های مشتریان";
+      const orders = await getAdminOrders();
+      content = <OrdersTab orders={orders} />;
       break;
     }
     case "plans": {

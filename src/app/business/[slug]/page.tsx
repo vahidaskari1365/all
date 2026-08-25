@@ -32,6 +32,8 @@ import { Reveal, Stagger, StaggerItem } from "@/components/motion";
 import { SectionHeading } from "@/components/section-heading";
 import { ReportButton } from "@/components/report-button";
 import { BusinessActionsBar } from "@/components/business-actions-bar";
+import { OrderButton } from "@/components/order-modal";
+import { LocationMap } from "@/components/location-map";
 import { businessQrDataUrl } from "@/lib/qr";
 import { toFa } from "@/lib/utils";
 
@@ -212,6 +214,18 @@ export default async function BusinessDetailPage({
                       تماس: <span dir="ltr">{business.phone}</span>
                     </a>
                   )}
+                  <OrderButton
+                    businessId={business.id}
+                    businessName={business.name}
+                    items={showcase
+                      .filter((item) => item.type === "product")
+                      .map((item) => ({
+                        id: item.id,
+                        title: item.title,
+                        price: item.price,
+                        unit: item.unit,
+                      }))}
+                  />
                   <a
                     href={mapsUrl(business)}
                     target="_blank"
@@ -432,6 +446,14 @@ export default async function BusinessDetailPage({
                   </p>
                 </div>
               </div>
+              <div className="mt-6">
+                <LocationMap
+                  name={business.name}
+                  lat={business.lat}
+                  lng={business.lng}
+                  address={business.address}
+                />
+              </div>
             </aside>
           </Reveal>
         </div>
@@ -461,6 +483,14 @@ export default async function BusinessDetailPage({
         businessName={business.name}
         phone={business.phone}
         mapsUrl={mapsUrl(business)}
+        items={showcase
+          .filter((item) => item.type === "product")
+          .map((item) => ({
+            id: item.id,
+            title: item.title,
+            price: item.price,
+            unit: item.unit,
+          }))}
       />
     </div>
   );

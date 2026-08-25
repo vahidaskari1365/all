@@ -99,7 +99,7 @@ export async function getCurrentOwner() {
       .select()
       .from(owners)
       .where(eq(owners.id, payload.sub));
-    return owner ?? null;
+    return owner && owner.active ? owner : null;
   } catch {
     return null;
   }
