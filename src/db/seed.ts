@@ -18,6 +18,7 @@ import {
 } from "@/db/schema";
 import { hashPassword } from "@/lib/auth";
 import { eq } from "drizzle-orm";
+import { randomBytes } from "node:crypto";
 
 type CatDef = { name: string; slug: string; icon: string; color: string };
 const CATS: CatDef[] = [
@@ -383,6 +384,17 @@ const BIZ: BizDef[] = [
 ];
 
 async function main() {
+  const adminEmail =
+    process.env.ADMIN_EMAIL?.trim().toLowerCase() || "admin@example.com";
+  const adminPassword = process.env.ADMIN_PASSWORD || "";
+  const demoOwnerPassword = process.env.DEMO_OWNER_PASSWORD || "";
+  if (adminPassword.length < 8) {
+    throw new Error("ADMIN_PASSWORD باید در محیط تنظیم و حداقل ۸ کاراکتر باشد.");
+  }
+  if (demoOwnerPassword.length < 8) {
+    throw new Error("DEMO_OWNER_PASSWORD باید در محیط تنظیم و حداقل ۸ کاراکتر باشد.");
+  }
+
   console.log("🧹 پاک‌سازی داده‌های قدیمی…");
   await db.delete(showcaseItems);
   await db.delete(orders);
@@ -406,14 +418,6 @@ async function main() {
   await db.insert(categories).values(CATS);
 
   console.log("🛡️  ساخت مدیر سامانه…");
-  const adminEmail =
-    process.env.ADMIN_EMAIL?.trim().toLowerCase() || "admin@kasbyab.ir";
-  const adminPassword =
-    process.env.ADMIN_PASSWORD ||
-    (process.env.NODE_ENV === "production" ? "" : "Admin@1234");
-  if (adminPassword.length < 8) {
-    throw new Error("ADMIN_PASSWORD باید حداقل ۸ کاراکتر باشد.");
-  }
   await db.insert(admins).values({
     name: "مدیر کل سامانه",
     email: adminEmail,
@@ -429,13 +433,13 @@ async function main() {
       {
         name: "کاربر نمونه",
         phone: "09120000000",
-        passwordHash: hashPassword("123456"),
+        passwordHash: hashPassword(demoOwnerPassword),
         approved: true,
       },
       {
         name: "کاربر در انتظار تأیید",
         phone: "09121111111",
-        passwordHash: hashPassword("123456"),
+        passwordHash: hashPassword(demoOwnerPassword),
         approved: false,
       },
     ])
@@ -500,7 +504,7 @@ async function main() {
     {
       name: "آرش طراح‌نژاد",
       phone: "09123334444",
-      passwordHash: hashPassword("123456"),
+      passwordHash: hashPassword(demoOwnerPassword),
       slug: "arash-tarrahi",
       bio: "طراح کارت‌ویزیت با ۸ سال سابقه؛ متخصص هویت بصری کسب‌وکارهای خدماتی.",
       referralCode: "arash20",
@@ -511,7 +515,7 @@ async function main() {
     {
       name: "نگین هنری",
       phone: "09125556666",
-      passwordHash: hashPassword("123456"),
+      passwordHash: hashPassword(demoOwnerPassword),
       slug: "negin-honari",
       bio: "گرافیست و طراح کارت‌ویزیت مینیمال؛ نمونه‌کارهای متعدد برای کافه‌ها و رستوران‌ها.",
       referralCode: "negin15",
@@ -522,7 +526,7 @@ async function main() {
     {
       name: "استودیو طرح‌مهر",
       phone: "09127778888",
-      passwordHash: hashPassword("123456"),
+      passwordHash: hashPassword(demoOwnerPassword),
       slug: "tarh-mehr-studio",
       bio: "استودیو تخصصی طراحی کارت‌ویزیت و اقلام چاپی.",
       referralCode: "mehr10",
@@ -775,7 +779,7 @@ async function main() {
 
   console.log("✅ دانه‌کاری پایان یافت.");
   console.log(`   مدیر: ${adminEmail} / رمز تنظیم‌شده در ADMIN_PASSWORD`);
-  console.log("   مالک نمونه: 09120000000 / 123456");
+  console.log("   مالک نمونه: 09120000000 / رمز تنظیم‌شده در DEMO_OWNER_PASSWORD");
   process.exit(0);
 }
 

@@ -9,7 +9,7 @@
 DATABASE_URL="postgresql://..." npm run db:migrate
 
 # فقط روی دیتابیس خالی، برای داده‌های نمونه
-DATABASE_URL="postgresql://..." ADMIN_EMAIL="admin@example.com" ADMIN_PASSWORD="رمز-قوی-حداقل-۸-کاراکتر" npm run db:seed
+DATABASE_URL="postgresql://..." ADMIN_EMAIL="admin@example.com" ADMIN_PASSWORD="رمز-قوی-حداقل-۸-کاراکتر" DEMO_OWNER_PASSWORD="رمز-نمونه-قوی" npm run db:seed
 ```
 
 یا محتوای `schema.sql` را در **SQL Editor** اجرا کنید و سپس seed را برای داده‌های دمو اجرا کنید. فایل seed داده‌های قبلی را پاک می‌کند؛ روی دیتابیس واقعیِ دارای داده اجرا نکنید.

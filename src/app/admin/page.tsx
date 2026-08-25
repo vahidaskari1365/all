@@ -47,22 +47,10 @@ export default async function AdminLoginPage() {
           <AdminLoginForm />
         </div>
 
-        {process.env.NODE_ENV !== "production" ? (
-          <p className="mt-6 text-center text-[11px] leading-6 text-slate-500">
-            برای ورود آزمایشی (دمو):
-            <span dir="ltr" className="mx-1 rounded bg-white/10 px-2 py-0.5 font-mono text-slate-300">
-              admin@kasbyab.ir
-            </span>
-            /
-            <span dir="ltr" className="mx-1 rounded bg-white/10 px-2 py-0.5 font-mono text-slate-300">
-              Admin@1234
-            </span>
-          </p>
-        ) : (
-          <p className="mt-6 text-center text-[11px] leading-6 text-slate-500">
-            برای امنیت، ایمیل و رمز مدیر از متغیرهای محیطی ADMIN_EMAIL و ADMIN_PASSWORD خوانده می‌شود.
-          </p>
-        )}
+        <p className="mt-6 text-center text-[11px] leading-6 text-slate-500">
+          ایمیل و رمز مدیر از متغیرهای محیطی ADMIN_EMAIL و ADMIN_PASSWORD خوانده می‌شود.
+          در محیط توسعه نیز اطلاعات ورود در صفحه نمایش داده نمی‌شوند.
+        </p>
       </div>
     </div>
   );

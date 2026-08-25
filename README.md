@@ -10,11 +10,15 @@
 
 ```bash
 npm install
+cp .env.example .env
+# در .env برای توسعه مقدار DATABASE_URL را روی این آدرس بگذارید:
+# DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:5432/app_db
+# همچنین ADMIN_EMAIL، ADMIN_PASSWORD و DEMO_OWNER_PASSWORD را تنظیم کنید.
 
 # ۱) دیتابیس توسعه (PostgreSQL واقعی در WASM — بدون نیاز به نصب چیزی)
 npm run db:server
 
-# ۲) در ترمینال دوم: ساخت جداول و داده‌های نمونه (شامل مدیر، کسب‌وکار و سفارش آزمایشی)
+# ۲) در ترمینال دوم: ساخت جداول و داده‌های نمونه
 npm run db:setup
 
 # ۳) اجرای سایت
@@ -37,7 +41,7 @@ npm run dev
 3. جداول و داده‌های نمونه را روی همان دیتابیس اعمال کنید (فقط یک‌بار روی دیتابیس خالی):
    ```bash
    DATABASE_URL="postgresql://..." npm run db:migrate
-   DATABASE_URL="postgresql://..." ADMIN_EMAIL="admin@example.com" ADMIN_PASSWORD="یک-رمز-قوی" npm run db:seed
+   DATABASE_URL="postgresql://..." ADMIN_EMAIL="admin@example.com" ADMIN_PASSWORD="یک-رمز-قوی" DEMO_OWNER_PASSWORD="رمز-نمونه-قوی" npm run db:seed
    ```
    یا فایل `supabase/schema.sql` را در SQL Editor اجرا کنید و سپس فقط seed را اجرا کنید.
    **هشدار:** `db:seed` داده‌های قبلی را برای ساخت دیتای دمو پاک می‌کند؛ روی دیتابیس دارای داده واقعی اجرا نکنید.
@@ -51,7 +55,7 @@ npm run dev
 
 ```bash
 cp .env.example .env
-# DATABASE_URL، AUTH_SECRET، ADMIN_EMAIL و ADMIN_PASSWORD را در .env تنظیم کنید
+# DATABASE_URL، AUTH_SECRET، ADMIN_EMAIL، ADMIN_PASSWORD و DEMO_OWNER_PASSWORD را در .env تنظیم کنید
 npm run db:migrate
 npm run db:seed       # فقط روی دیتابیس خالی؛ دیتای قبلی را پاک می‌کند
 npm run build
@@ -63,8 +67,10 @@ npm run build
 
 | نقش | ورود | رمز |
 |---|---|---|
-| مدیر کل | `admin@kasbyab.ir` (از مسیر `/admin`) | `Admin@1234` |
-| صاحب کسب‌وکار نمونه | `09120000000` (از مسیر `/owner`) | `123456` |
+| مدیر کل | مقدار `ADMIN_EMAIL` (از مسیر `/admin`) | مقدار `ADMIN_PASSWORD` |
+| صاحب کسب‌وکار نمونه | `09120000000` (از مسیر `/owner`) | مقدار `DEMO_OWNER_PASSWORD` |
+
+`npm run db:seed` فقط با رمزهای محیطی حداقل ۸ کاراکتری اجرا می‌شود و آن‌ها را در source یا Git ذخیره نمی‌کند.
 
 ---
 
