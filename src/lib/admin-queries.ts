@@ -14,6 +14,7 @@ import {
   referrals,
   reports,
   subscriptions,
+  orders,
 } from "@/db/schema";
 import { enrichBusinesses } from "@/lib/queries";
 
@@ -25,6 +26,7 @@ export async function getAdminStats() {
     pendingBiz,
     pendingOwners,
     pendingReports,
+    pendingOrders,
     activeSubs,
     pendingDesigners,
     auditCount,
@@ -44,6 +46,10 @@ export async function getAdminStats() {
       .where(eq(reports.status, "pending")),
     db
       .select({ count: sql<number>`count(*)::int` })
+      .from(orders)
+      .where(eq(orders.status, "pending")),
+    db
+      .select({ count: sql<number>`count(*)::int` })
       .from(subscriptions)
       .where(eq(subscriptions.status, "active")),
     db
@@ -57,6 +63,7 @@ export async function getAdminStats() {
     pendingBiz: pendingBiz[0]?.count ?? 0,
     pendingOwners: pendingOwners[0]?.count ?? 0,
     pendingReports: pendingReports[0]?.count ?? 0,
+    pendingOrders: pendingOrders[0]?.count ?? 0,
     activeSubs: activeSubs[0]?.count ?? 0,
     pendingDesigners: pendingDesigners[0]?.count ?? 0,
     auditCount: auditCount[0]?.count ?? 0,
@@ -103,6 +110,21 @@ export async function getAdminReports() {
     const b = bizRows.find((x) => x.id === r.businessId) ?? null;
     return { ...r, business: b };
   });
+}
+
+/* ─────────────────────────── سفارش‌ها ─────────────────────────── */
+
+export async function getAdminOrders() {
+  const [rows, businessesList] = await Promise.all([
+    db.select().from(orders).orderBy(desc(orders.createdAt)).limit(500),
+    db
+      .select({ id: businesses.id, name: businesses.name, slug: businesses.slug })
+      .from(businesses),
+  ]);
+  return rows.map((order) => ({
+    ...order,
+    business: businessesList.find((business) => business.id === order.businessId) ?? null,
+  }));
 }
 
 /* ─────────────────────────── پلن‌ها و اشتراک‌ها ─────────────────────────── */

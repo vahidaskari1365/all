@@ -9,7 +9,18 @@ import { db } from "@/db";
 import { admins, owners } from "@/db/schema";
 import { eq } from "drizzle-orm";
 
-const SECRET = process.env.AUTH_SECRET || "kasbyab-dev-secret-change-me";
+// در توسعه اگر env تنظیم نشده باشد، یک کلید فقط برای همین اجرای فرایند ساخته می‌شود؛
+// در production وجود AUTH_SECRET الزامی است و کلید پیش‌فرض ثابتی وجود ندارد.
+const RUNTIME_DEV_SECRET = randomBytes(32).toString("hex");
+function getAuthSecret() {
+  const configured = process.env.AUTH_SECRET?.trim();
+  if (configured) return configured;
+  if (process.env.NODE_ENV === "production") {
+    throw new Error("AUTH_SECRET is required in production");
+  }
+  return RUNTIME_DEV_SECRET;
+}
+
 const OWNER_COOKIE = "kasbyab_session";
 const ADMIN_COOKIE = "kasbyab_admin_session";
 const OWNER_MAX_AGE = 60 * 60 * 24 * 14; // ۱۴ روز
@@ -38,14 +49,14 @@ type TokenPayload = { sub: number; iat: number; exp: number; tf?: boolean };
 
 export function signToken(payload: object): string {
   const data = Buffer.from(JSON.stringify(payload)).toString("base64url");
-  const sig = createHmac("sha256", SECRET).update(data).digest("base64url");
+  const sig = createHmac("sha256", getAuthSecret()).update(data).digest("base64url");
   return `${data}.${sig}`;
 }
 
 export function verifyToken<T>(token: string): T | null {
   const [data, sig] = token.split(".");
   if (!data || !sig) return null;
-  const expected = createHmac("sha256", SECRET).update(data).digest("base64url");
+  const expected = createHmac("sha256", getAuthSecret()).update(data).digest("base64url");
   const a = Buffer.from(sig);
   const b = Buffer.from(expected);
   if (a.length !== b.length || !timingSafeEqual(a, b)) return null;
@@ -99,7 +110,7 @@ export async function getCurrentOwner() {
       .select()
       .from(owners)
       .where(eq(owners.id, payload.sub));
-    return owner ?? null;
+    return owner && owner.active ? owner : null;
   } catch {
     return null;
   }

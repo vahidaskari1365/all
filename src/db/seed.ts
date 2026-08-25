@@ -14,9 +14,11 @@ import {
   reports,
   showcaseItems,
   subscriptions,
+  orders,
 } from "@/db/schema";
 import { hashPassword } from "@/lib/auth";
 import { eq } from "drizzle-orm";
+import { randomBytes } from "node:crypto";
 
 type CatDef = { name: string; slug: string; icon: string; color: string };
 const CATS: CatDef[] = [
@@ -382,8 +384,20 @@ const BIZ: BizDef[] = [
 ];
 
 async function main() {
+  const adminEmail =
+    process.env.ADMIN_EMAIL?.trim().toLowerCase() || "admin@example.com";
+  const adminPassword = process.env.ADMIN_PASSWORD || "";
+  const demoOwnerPassword = process.env.DEMO_OWNER_PASSWORD || "";
+  if (adminPassword.length < 8) {
+    throw new Error("ADMIN_PASSWORD باید در محیط تنظیم و حداقل ۸ کاراکتر باشد.");
+  }
+  if (demoOwnerPassword.length < 8) {
+    throw new Error("DEMO_OWNER_PASSWORD باید در محیط تنظیم و حداقل ۸ کاراکتر باشد.");
+  }
+
   console.log("🧹 پاک‌سازی داده‌های قدیمی…");
   await db.delete(showcaseItems);
+  await db.delete(orders);
   await db.delete(reports);
   await db.delete(referrals);
   await db.delete(subscriptions);
@@ -406,8 +420,8 @@ async function main() {
   console.log("🛡️  ساخت مدیر سامانه…");
   await db.insert(admins).values({
     name: "مدیر کل سامانه",
-    email: "admin@kasbyab.ir",
-    passwordHash: hashPassword("Admin@1234"),
+    email: adminEmail,
+    passwordHash: hashPassword(adminPassword),
     role: "superadmin",
     active: true,
   });
@@ -419,13 +433,13 @@ async function main() {
       {
         name: "کاربر نمونه",
         phone: "09120000000",
-        passwordHash: hashPassword("123456"),
+        passwordHash: hashPassword(demoOwnerPassword),
         approved: true,
       },
       {
         name: "کاربر در انتظار تأیید",
         phone: "09121111111",
-        passwordHash: hashPassword("123456"),
+        passwordHash: hashPassword(demoOwnerPassword),
         approved: false,
       },
     ])
@@ -490,7 +504,7 @@ async function main() {
     {
       name: "آرش طراح‌نژاد",
       phone: "09123334444",
-      passwordHash: hashPassword("123456"),
+      passwordHash: hashPassword(demoOwnerPassword),
       slug: "arash-tarrahi",
       bio: "طراح کارت‌ویزیت با ۸ سال سابقه؛ متخصص هویت بصری کسب‌وکارهای خدماتی.",
       referralCode: "arash20",
@@ -501,7 +515,7 @@ async function main() {
     {
       name: "نگین هنری",
       phone: "09125556666",
-      passwordHash: hashPassword("123456"),
+      passwordHash: hashPassword(demoOwnerPassword),
       slug: "negin-honari",
       bio: "گرافیست و طراح کارت‌ویزیت مینیمال؛ نمونه‌کارهای متعدد برای کافه‌ها و رستوران‌ها.",
       referralCode: "negin15",
@@ -512,7 +526,7 @@ async function main() {
     {
       name: "استودیو طرح‌مهر",
       phone: "09127778888",
-      passwordHash: hashPassword("123456"),
+      passwordHash: hashPassword(demoOwnerPassword),
       slug: "tarh-mehr-studio",
       bio: "استودیو تخصصی طراحی کارت‌ویزیت و اقلام چاپی.",
       referralCode: "mehr10",
@@ -728,9 +742,44 @@ async function main() {
     ]);
   }
 
+  console.log("🛒 درج سفارش‌های نمونه…");
+  if (firstBizId) {
+    await db.insert(orders).values({
+      orderNumber: "KSB-DEMO-1001",
+      businessId: firstBizId,
+      itemTitle: "چلوکباب مخصوص اصغر",
+      unitPrice: 385000,
+      totalAmount: 770000,
+      customerName: "علی رضایی",
+      customerPhone: "09121234567",
+      customerEmail: "ali@example.com",
+      service: "چلوکباب مخصوص اصغر",
+      quantity: 2,
+      requestedDate: "1405/01/18",
+      preferredTime: "۱۳:۰۰ تا ۱۴:۰۰",
+      deliveryAddress: "تهران، سعادت‌آباد، خیابان سرو",
+      note: "لطفاً قاشق و چنگال اضافه ارسال شود.",
+      status: "pending",
+    });
+  }
+  if (secondBizId) {
+    await db.insert(orders).values({
+      orderNumber: "KSB-DEMO-1002",
+      businessId: secondBizId,
+      customerName: "سارا کریمی",
+      customerPhone: "09129876543",
+      service: "رزرو وقت مشاوره",
+      quantity: 1,
+      requestedDate: "1405/01/20",
+      preferredTime: "۱۷:۳۰",
+      note: "برای خدمات رنگ و لایت وقت می‌خواهم.",
+      status: "confirmed",
+    });
+  }
+
   console.log("✅ دانه‌کاری پایان یافت.");
-  console.log("   مدیر: admin@kasbyab.ir / Admin@1234");
-  console.log("   مالک نمونه: 09120000000 / 123456");
+  console.log(`   مدیر: ${adminEmail} / رمز تنظیم‌شده در ADMIN_PASSWORD`);
+  console.log("   مالک نمونه: 09120000000 / رمز تنظیم‌شده در DEMO_OWNER_PASSWORD");
   process.exit(0);
 }
 

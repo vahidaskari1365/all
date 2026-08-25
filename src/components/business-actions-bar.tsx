@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Phone, Navigation, Flag } from "lucide-react";
 import { ReportModal } from "@/components/report-modal";
+import { OrderButton } from "@/components/order-modal";
 
 /**
  * نوار اقدام پایین صفحه کسب‌وکار در موبایل —
@@ -13,11 +14,13 @@ export function BusinessActionsBar({
   businessName,
   phone,
   mapsUrl,
+  items = [],
 }: {
   businessId: number;
   businessName: string;
   phone: string | null;
   mapsUrl: string;
+  items?: { id: number; title: string; price: string | null; unit: string | null }[];
 }) {
   const [reportOpen, setReportOpen] = useState(false);
 
@@ -36,6 +39,12 @@ export function BusinessActionsBar({
             <Flag className="h-5 w-5" />
             گزارش
           </button>
+          <OrderButton
+            businessId={businessId}
+            businessName={businessName}
+            items={items}
+            variant="compact"
+          />
           {phone && (
             <a
               href={`tel:${phone}`}

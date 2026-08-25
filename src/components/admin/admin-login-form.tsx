@@ -39,6 +39,8 @@ export function AdminLoginForm() {
       }
       router.push("/admin/dashboard");
       router.refresh();
+    } catch {
+      setError("ارتباط با سامانه برقرار نشد. اتصال دیتابیس و تنظیمات محیط را بررسی کنید.");
     } finally {
       setLoading(false);
     }
@@ -66,7 +68,7 @@ export function AdminLoginForm() {
                 dir="ltr"
                 value={code}
                 onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))}
-                placeholder="123456"
+                placeholder="کد ۶ رقمی"
                 className="input h-12 pr-10 text-center font-mono text-lg tracking-[0.5em]"
                 autoFocus
               />

@@ -4,8 +4,8 @@ import { ShieldCheck, Hourglass } from "lucide-react";
 import { getCurrentOwner } from "@/lib/auth";
 import { LogoutButton } from "@/components/logout-button";
 import { db } from "@/db";
-import { businesses, showcaseItems } from "@/db/schema";
-import { eq } from "drizzle-orm";
+import { businesses, orders, showcaseItems } from "@/db/schema";
+import { desc, eq, inArray } from "drizzle-orm";
 import {
   getActiveSubscription,
   getCategories,
@@ -31,6 +31,14 @@ export default async function DashboardPage() {
     getCities(),
     getPlans(),
   ]);
+
+  const orderRows = rows.length
+    ? await db
+        .select()
+        .from(orders)
+        .where(inArray(orders.businessId, rows.map((business) => business.id)))
+        .orderBy(desc(orders.createdAt))
+    : [];
 
   // بارگذاری آیتم‌های ویترین هر کسب‌وکار
   const itemsByBiz = await Promise.all(
@@ -69,6 +77,7 @@ export default async function DashboardPage() {
     })),
     subscription: subsByBiz[i].active,
     latestSubscription: subsByBiz[i].latest,
+    orders: orderRows.filter((order) => order.businessId === b.id),
   }));
 
   return (

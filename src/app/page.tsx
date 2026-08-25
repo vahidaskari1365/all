@@ -20,6 +20,7 @@ import {
   getFeaturedBusinesses,
   getPlans,
   getStats,
+  getCityBusinessCounts,
 } from "@/lib/queries";
 import { formatPrice, toFa } from "@/lib/utils";
 import { SearchBar } from "@/components/search-bar";
@@ -28,16 +29,18 @@ import { SectionHeading } from "@/components/section-heading";
 import { Reveal, Stagger, StaggerItem } from "@/components/motion";
 import { CountUp } from "@/components/counter";
 import { CategoryIcon, CATEGORY_COLORS } from "@/components/category-icon";
+import { IranMap } from "@/components/iran-map";
 
 export const dynamic = "force-dynamic";
 
 export default async function HomePage() {
-  const [categories, cities, featured, stats, plans] = await Promise.all([
+  const [categories, cities, featured, stats, plans, cityCounts] = await Promise.all([
     getCategories(),
     getCities(),
     getFeaturedBusinesses(6),
     getStats(),
     getPlans(),
+    getCityBusinessCounts(),
   ]);
 
   const heroChips = categories.slice(0, 6);
@@ -187,6 +190,9 @@ export default async function HomePage() {
           ))}
         </Stagger>
       </section>
+
+      {/* ============ نقشه ایران ============ */}
+      <IranMap cities={cities} counts={cityCounts} />
 
       {/* ============ کسب‌وکارهای منتخب ============ */}
       <section id="featured" className="bg-gradient-to-b from-white to-primary-50/40 py-16">

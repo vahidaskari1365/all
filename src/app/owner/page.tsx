@@ -157,7 +157,7 @@ export default function OwnerAuthPage() {
               className="input"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              placeholder="حداقل ۶ کاراکتر"
+              placeholder="حداقل ۸ کاراکتر"
               dir="ltr"
             />
           </label>

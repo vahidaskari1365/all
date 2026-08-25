@@ -108,6 +108,29 @@ const DDL = [
     created_at timestamp NOT NULL DEFAULT now(),
     resolved_at timestamp
   )`,
+  // ── سفارش‌ها و درخواست‌های مشتریان ──
+  sql`CREATE TABLE IF NOT EXISTS orders (
+    id serial PRIMARY KEY,
+    order_number varchar(32) NOT NULL UNIQUE,
+    business_id integer NOT NULL,
+    item_id integer,
+    item_title varchar(160),
+    unit_price integer,
+    total_amount integer,
+    customer_name varchar(120) NOT NULL,
+    customer_phone varchar(40) NOT NULL,
+    customer_email varchar(160),
+    service varchar(180) NOT NULL,
+    quantity integer NOT NULL DEFAULT 1,
+    requested_date varchar(20),
+    preferred_time varchar(40),
+    delivery_address text,
+    note text,
+    status varchar(30) NOT NULL DEFAULT 'pending',
+    owner_note text,
+    created_at timestamp NOT NULL DEFAULT now(),
+    updated_at timestamp NOT NULL DEFAULT now()
+  )`,
   // ── پلن‌ها و اشتراک‌ها ──
   sql`CREATE TABLE IF NOT EXISTS plans (
     id serial PRIMARY KEY,
@@ -185,6 +208,11 @@ const DDL = [
     published boolean NOT NULL DEFAULT false,
     created_at timestamp NOT NULL DEFAULT now()
   )`,
+  sql`CREATE INDEX IF NOT EXISTS businesses_status_city_idx ON businesses (status, city_id)`,
+  sql`CREATE INDEX IF NOT EXISTS businesses_status_category_idx ON businesses (status, category_id)`,
+  sql`CREATE INDEX IF NOT EXISTS orders_business_created_idx ON orders (business_id, created_at DESC)`,
+  sql`CREATE INDEX IF NOT EXISTS orders_status_idx ON orders (status)`,
+  sql`CREATE INDEX IF NOT EXISTS showcase_items_business_idx ON showcase_items (business_id, created_at DESC)`,
 ];
 
 async function main() {

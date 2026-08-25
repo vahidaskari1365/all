@@ -16,6 +16,7 @@ import {
   referrals,
   reports,
   subscriptions,
+  orders,
 } from "@/db/schema";
 import { getCurrentAdmin, hashPassword } from "@/lib/auth";
 import { logAudit } from "@/lib/audit";
@@ -365,6 +366,45 @@ export async function setReportStatus(
       detail: `status=${status}`,
     });
     revalidatePath("/admin/dashboard");
+    return { ok: true };
+  } catch {
+    return failed;
+  }
+}
+
+/* ─────────────────────────── سفارش‌ها ─────────────────────────── */
+
+const ORDER_STATUSES = ["pending", "confirmed", "completed", "canceled"] as const;
+
+export async function setOrderStatus(
+  orderId: number,
+  status: string,
+  ownerNote?: string
+): Promise<ActionResult> {
+  const admin = await getCurrentAdmin();
+  if (!admin) return denied;
+  if (!(ORDER_STATUSES as readonly string[]).includes(status)) {
+    return { error: "وضعیت سفارش نامعتبر است." };
+  }
+  try {
+    await db
+      .update(orders)
+      .set({
+        status: status as (typeof ORDER_STATUSES)[number],
+        ownerNote: cleanText(ownerNote, 500) || null,
+        updatedAt: new Date(),
+      })
+      .where(eq(orders.id, orderId));
+    await logAudit({
+      actorType: "admin",
+      actorId: admin.id,
+      actorName: admin.email,
+      action: "order.set_status",
+      target: `order:${orderId}`,
+      detail: `status=${status}`,
+    });
+    revalidatePath("/admin/dashboard");
+    revalidatePath("/owner/dashboard");
     return { ok: true };
   } catch {
     return failed;

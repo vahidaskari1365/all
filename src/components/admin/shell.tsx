@@ -15,6 +15,8 @@ import {
   ShieldCheck,
   LogOut,
   Megaphone,
+  ClipboardList,
+  UserCog,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
@@ -24,12 +26,14 @@ const TABS: { key: string; label: string; icon: LucideIcon }[] = [
   { key: "owners", label: "صاحبان کسب‌وکار", icon: Users },
   { key: "taxonomy", label: "دسته‌ها و شهرها", icon: Shapes },
   { key: "reports", label: "گزارش‌های مردمی", icon: Flag },
+  { key: "orders", label: "سفارش‌ها", icon: ClipboardList },
   { key: "plans", label: "پلن‌ها", icon: Package },
   { key: "subscriptions", label: "اشتراک‌ها", icon: CreditCard },
   { key: "designers", label: "طراحان", icon: Palette },
   { key: "referrals", label: "معرفی‌ها", icon: Megaphone },
   { key: "blog", label: "بلاگ", icon: ScrollText },
   { key: "audit", label: "سوابق مدیریتی", icon: ShieldCheck },
+  { key: "admins", label: "مدیران سامانه", icon: UserCog },
 ];
 
 export function AdminShell({

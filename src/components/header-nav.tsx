@@ -16,6 +16,7 @@ import {
 const NAV = [
   { href: "/", label: "خانه" },
   { href: "/search", label: "کسب‌وکارها" },
+  { href: "/#categories", label: "دسته‌بندی‌ها" },
   { href: "/designers", label: "طراحان" },
   { href: "/blog", label: "بلاگ" },
 ];

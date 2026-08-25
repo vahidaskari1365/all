@@ -130,6 +130,8 @@ export function Fa({ value }: { value: number | string }) {
 
 export const STATUS_TONE: Record<string, "slate" | "green" | "amber" | "rose" | "sky" | "violet"> = {
   pending: "amber",
+  confirmed: "sky",
+  completed: "green",
   active: "green",
   suspended: "rose",
   rejected: "rose",
@@ -144,6 +146,8 @@ export const STATUS_TONE: Record<string, "slate" | "green" | "amber" | "rose" | 
 
 export const STATUS_LABEL: Record<string, string> = {
   pending: "در انتظار تأیید",
+  confirmed: "تأییدشده",
+  completed: "تکمیل‌شده",
   active: "فعال",
   suspended: "تعلیق‌شده",
   rejected: "ردشده",
