@@ -34,6 +34,16 @@ export default function OwnerAuthPage() {
         setError(j.error ?? "خطایی رخ داد.");
         return;
       }
+      if (mode === "register" && j.owner && j.owner.approved === false) {
+        setError(
+          "حساب شما با موفقیت ساخته شد؛ پس از تأیید مدیریت می‌توانید کسب‌وکار ثبت کنید. اکنون به پنل منتقل می‌شوید…"
+        );
+        setTimeout(() => {
+          router.push("/owner/dashboard");
+          router.refresh();
+        }, 1400);
+        return;
+      }
       router.push("/owner/dashboard");
       router.refresh();
     } finally {

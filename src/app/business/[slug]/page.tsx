@@ -13,9 +13,13 @@ import {
   Images,
   ArrowLeft,
   CheckCircle2,
+  QrCode,
+  Download,
+  Crown,
 } from "lucide-react";
 import { InstagramIcon, TelegramIcon, WhatsAppIcon } from "@/components/brand-icons";
 import {
+  getActiveSubscription,
   getBusinessBySlug,
   getShowcaseItems,
   getRelatedBusinesses,
@@ -26,6 +30,10 @@ import { StarRating } from "@/components/star-rating";
 import { CategoryIcon } from "@/components/category-icon";
 import { Reveal, Stagger, StaggerItem } from "@/components/motion";
 import { SectionHeading } from "@/components/section-heading";
+import { ReportButton } from "@/components/report-button";
+import { BusinessActionsBar } from "@/components/business-actions-bar";
+import { businessQrDataUrl } from "@/lib/qr";
+import { toFa } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
@@ -67,9 +75,10 @@ export default async function BusinessDetailPage({
   const business = await getBusinessBySlug(slug);
   if (!business) notFound();
 
-  const [showcase, related] = await Promise.all([
+  const [showcase, related, subscription] = await Promise.all([
     getShowcaseItems(business.id),
     getRelatedBusinesses(business),
+    getActiveSubscription(business.id),
   ]);
 
   const claims = {
@@ -91,10 +100,14 @@ export default async function BusinessDetailPage({
     wa ? { href: `https://wa.me/${wa}`, label: "واتساپ", Icon: WhatsAppIcon } : null,
   ].filter(Boolean) as { href: string; label: string; Icon: typeof InstagramIcon }[];
 
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://kasbyab.ir";
+  const businessUrl = `${siteUrl.replace(/\/$/, "")}/business/${business.slug}`;
+  const qrDataUrl = await businessQrDataUrl(businessUrl);
+
   return (
-    <div className="pb-8">
+    <div className="pb-24 md:pb-8">
       {/* ===== بنر کاور ===== */}
-      <div className="relative h-52 w-full overflow-hidden sm:h-72">
+      <div className="relative h-44 w-full overflow-hidden sm:h-64">
         {business.coverUrl ? (
           <Image
             src={business.coverUrl}
@@ -121,11 +134,11 @@ export default async function BusinessDetailPage({
 
       {/* ===== سربرگ طرح معرفی ===== */}
       <div className="container-px mx-auto max-w-7xl">
-        <div className="-mt-16 grid gap-6 lg:grid-cols-[1fr_340px]">
+        <div className="-mt-14 grid gap-6 sm:-mt-16 lg:grid-cols-[1fr_340px]">
           {/* ستون اصلی */}
           <div className="min-w-0">
             <Reveal>
-              <div className="card p-6 sm:p-7">
+              <div className="card p-5 sm:p-7">
                 <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
                   <span className="grid h-20 w-20 shrink-0 place-items-center overflow-hidden rounded-2xl bg-gradient-to-bl from-primary-500 to-primary-700 text-2xl font-black text-white shadow-lg ring-4 ring-white">
                     {business.logoUrl ? (
@@ -141,7 +154,7 @@ export default async function BusinessDetailPage({
                     )}
                   </span>
                   <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
                       <CategoryIcon
                         name={business.category?.icon ?? "store"}
                         className="h-4 w-4 text-primary"
@@ -149,6 +162,12 @@ export default async function BusinessDetailPage({
                       <span className="text-xs font-bold text-primary-700">
                         {business.category?.name}
                       </span>
+                      {subscription && (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-violet-50 px-2.5 py-1 text-[11px] font-bold text-violet-700 ring-1 ring-inset ring-violet-200">
+                          <Crown className="h-3 w-3" />
+                          اشتراک {subscription.plan?.name ?? "فعال"}
+                        </span>
+                      )}
                     </div>
                     <h1 className="mt-1 text-2xl font-black text-ink sm:text-3xl">
                       {business.name}
@@ -190,7 +209,7 @@ export default async function BusinessDetailPage({
                       className="inline-flex items-center gap-2 rounded-xl bg-primary px-5 py-3 text-sm font-bold text-white shadow-lg shadow-primary-600/25 transition-transform hover:scale-[1.03]"
                     >
                       <Phone className="h-4 w-4" />
-                      تماس: {business.phone}
+                      تماس: <span dir="ltr">{business.phone}</span>
                     </a>
                   )}
                   <a
@@ -202,6 +221,7 @@ export default async function BusinessDetailPage({
                     <Navigation className="h-4 w-4" />
                     مسیریابی
                   </a>
+                  <ReportButton businessId={business.id} businessName={business.name} />
                   {socials.length > 0 && (
                     <div className="flex items-center gap-2">
                       {socials.map(({ href, label, Icon }) => (
@@ -226,7 +246,7 @@ export default async function BusinessDetailPage({
             {/* درباره کسب‌وکار */}
             {business.description && (
               <Reveal delay={0.05}>
-                <div className="card mt-6 p-6 sm:p-7">
+                <div className="card mt-6 p-5 sm:p-7">
                   <h2 className="flex items-center gap-2 text-lg font-extrabold text-ink">
                     <span className="h-5 w-1.5 rounded-full bg-primary" />
                     طرح معرفی کسب‌وکار
@@ -294,6 +314,51 @@ export default async function BusinessDetailPage({
                 </div>
               </Reveal>
             )}
+
+            {/* کارت QR — لینک اختصاصی */}
+            <Reveal delay={0.12}>
+              <div className="card mt-6 p-5 sm:p-7">
+                <div className="flex flex-col items-center gap-5 sm:flex-row sm:items-start">
+                  <div className="rounded-2xl bg-white p-3 ring-1 ring-slate-200">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={qrDataUrl}
+                      alt={`QR اختصاصی ${business.name}`}
+                      width={148}
+                      height={148}
+                      className="h-auto w-32 sm:w-36"
+                    />
+                  </div>
+                  <div className="min-w-0 flex-1 text-center sm:text-right">
+                    <h2 className="flex items-center justify-center gap-2 text-lg font-extrabold text-ink sm:justify-start">
+                      <QrCode className="h-5 w-5 text-primary" />
+                      کارت معرفی دیجیتال و QR
+                    </h2>
+                    <p className="mt-2 text-sm leading-7 text-slate-500">
+                      با اسکن این QR مشتریان مستقیم به همین صفحه می‌رسند؛ تماس،
+                      مسیریابی و شبکه‌های اجتماعی در دسترس است. آن را چاپ کنید یا
+                      در شبکه‌های اجتماعی به اشتراک بگذارید.
+                    </p>
+                    <p
+                      dir="ltr"
+                      className="mt-3 truncate rounded-xl bg-slate-50 px-3 py-2 text-left text-xs text-slate-500 ring-1 ring-slate-100"
+                    >
+                      {businessUrl}
+                    </p>
+                    <div className="mt-4 flex flex-wrap justify-center gap-2 sm:justify-start">
+                      <a
+                        href={qrDataUrl}
+                        download={`kasbyab-qr-${business.slug}.png`}
+                        className="inline-flex items-center gap-2 rounded-xl bg-ink px-4 py-2.5 text-xs font-bold text-white transition-transform hover:scale-[1.03]"
+                      >
+                        <Download className="h-4 w-4" />
+                        دانلود QR
+                      </a>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </Reveal>
           </div>
 
           {/* ستون تماس */}
@@ -390,6 +455,13 @@ export default async function BusinessDetailPage({
         )}
       </div>
 
+      {/* نوار اقدام موبایل */}
+      <BusinessActionsBar
+        businessId={business.id}
+        businessName={business.name}
+        phone={business.phone}
+        mapsUrl={mapsUrl(business)}
+      />
     </div>
   );
 }

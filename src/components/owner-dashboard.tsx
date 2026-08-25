@@ -18,10 +18,20 @@ import {
   Store,
   Info,
   ChevronDown,
+  CreditCard,
+  Crown,
+  Hourglass,
+  QrCode,
 } from "lucide-react";
-import type { BusinessWithMeta, CategoryRow, CityRow } from "@/lib/queries";
+import type {
+  BusinessWithMeta,
+  CategoryRow,
+  CityRow,
+  PlanRow,
+} from "@/lib/queries";
 import { CategoryIcon, CATEGORY_COLORS } from "@/components/category-icon";
 import { toFa } from "@/lib/utils";
+import { CardBuilder } from "@/components/card-builder";
 
 type Item = {
   id: number;
@@ -33,7 +43,19 @@ type Item = {
   unit: string | null;
 };
 
-type Biz = BusinessWithMeta & { items: Item[] };
+type SubState = {
+  id: number;
+  planId: number;
+  status: string;
+  endsAt: Date | null;
+  plan: { id: number; name: string; priceMonthly: number } | null;
+} | null;
+
+type Biz = BusinessWithMeta & {
+  items: Item[];
+  subscription: SubState;
+  latestSubscription: { id: number; status: string } | null;
+};
 
 type FormState = {
   name: string;
@@ -121,14 +143,18 @@ const TOGGLES: { key: keyof FormState; label: string; icon: typeof BadgeCheck }[
 
 export function OwnerDashboard({
   ownerName,
+  ownerApproved,
   businesses,
   categories,
   cities,
+  plans,
 }: {
   ownerName: string;
+  ownerApproved: boolean;
   businesses: Biz[];
   categories: CategoryRow[];
   cities: CityRow[];
+  plans: PlanRow[];
 }) {
   const [list, setList] = useState<Biz[]>(businesses);
   const [editing, setEditing] = useState<Biz | "new" | null>(null);
@@ -136,8 +162,22 @@ export function OwnerDashboard({
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [showcaseFor, setShowcaseFor] = useState<number | null>(null);
+  const [cardFor, setCardFor] = useState<Biz | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+  const [subFor, setSubFor] = useState<number | null>(null);
+  const [subPlan, setSubPlan] = useState<string>("");
+  const [subReferral, setSubReferral] = useState("");
+  const [subError, setSubError] = useState<string | null>(null);
+  const [subBusy, setSubBusy] = useState(false);
+  const [subDone, setSubDone] = useState<string | null>(null);
 
   function openCreate() {
+    if (!ownerApproved) {
+      setNotice(
+        "حساب شما هنوز توسط مدیریت تأیید نشده است. پس از تأیید حساب می‌توانید کسب‌وکار ثبت کنید."
+      );
+      return;
+    }
     setForm(EMPTY_FORM);
     setError(null);
     setEditing("new");
@@ -202,10 +242,15 @@ export function OwnerDashboard({
           reviewCount: 0,
           featured: false,
           verified: false,
+          status: "pending",
+          reviewNote: null,
+          createdAt: new Date(),
           ownerId: null,
           category: cat,
           city: cit,
           items: [],
+          subscription: null,
+          latestSubscription: null,
         };
         setList((prev) => [nb, ...prev]);
       } else if (editing) {
@@ -290,7 +335,11 @@ export function OwnerDashboard({
   }
 
   async function removeShowcase(businessId: number, itemId: number) {
-    const res = await fetch(`/api/showcase/${itemId}`, { method: "DELETE" });
+    const res = await fetch("/api/showcase", {
+      method: "DELETE",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ itemId }),
+    });
     if (res.ok) {
       setList((prev) =>
         prev.map((b) =>
@@ -302,7 +351,39 @@ export function OwnerDashboard({
     }
   }
 
-
+  async function requestSubscription(businessId: number) {
+    setSubError(null);
+    setSubDone(null);
+    if (!subPlan) {
+      setSubError("ابتدا پلن موردنظر را انتخاب کنید.");
+      return;
+    }
+    setSubBusy(true);
+    try {
+      const res = await fetch("/api/owner/subscribe", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          businessId,
+          planId: Number(subPlan),
+          referralCode: subReferral.trim(),
+        }),
+      });
+      const j = await res.json();
+      if (!res.ok) {
+        setSubError(j.error ?? "خطایی رخ داد.");
+        return;
+      }
+      setSubDone(
+        j.referralRegistered
+          ? "درخواست شما ثبت شد و معرفی طراح در سیستم لحاظ گردید. پس از تأیید مدیریت، اشتراک فعال می‌شود."
+          : "درخواست شما ثبت شد؛ پس از تأیید مدیریت، اشتراک فعال می‌شود."
+      );
+      setSubFor(null);
+    } finally {
+      setSubBusy(false);
+    }
+  }
 
   return (
     <div className="container-px mx-auto max-w-6xl py-8 sm:py-12">
@@ -315,12 +396,28 @@ export function OwnerDashboard({
         </div>
         <button
           onClick={openCreate}
-          className="inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-5 py-3 text-sm font-bold text-white shadow-lg shadow-primary-600/25 transition-transform hover:scale-[1.03]"
+          className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-primary px-5 py-3 text-sm font-bold text-white shadow-lg shadow-primary-600/25 transition-transform hover:scale-[1.03]"
         >
           <Plus className="h-4 w-4" />
           افزودن کسب‌وکار جدید
         </button>
       </div>
+
+      {notice && (
+        <div className="mt-5 flex items-start justify-between gap-3 rounded-2xl bg-amber-50 px-5 py-4 ring-1 ring-amber-200">
+          <p className="flex items-start gap-2 text-sm font-medium leading-7 text-amber-800">
+            <Hourglass className="mt-1 h-4 w-4 shrink-0" />
+            {notice}
+          </p>
+          <button
+            onClick={() => setNotice(null)}
+            className="cursor-pointer rounded-lg p-1 text-amber-500 hover:bg-amber-100"
+            aria-label="بستن پیام"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      )}
 
       {/* فهرست کسب‌وکارها */}
       <div className="mt-8 space-y-4">
@@ -359,15 +456,36 @@ export function OwnerDashboard({
                       {b.district ? ` • ${b.district}` : ""}
                     </p>
                     <div className="mt-1.5 flex flex-wrap gap-1">
+                      <StatusMiniTag status={b.status} />
                       {b.verified && <MiniTag tone="primary">تأیید پلتفرم</MiniTag>}
                       {b.hasLicense && <MiniTag tone="emerald">جواز</MiniTag>}
                       {b.unionMember && <MiniTag tone="sky">اتحادیه</MiniTag>}
                       {b.hasGuarantee && <MiniTag tone="amber">ضمانت</MiniTag>}
                       {b.hasShowcase && <MiniTag tone="violet">ویترین</MiniTag>}
                     </div>
+                    {b.status === "pending" && (
+                      <p className="mt-1.5 flex items-center gap-1 text-[11px] font-medium text-amber-600">
+                        <Hourglass className="h-3 w-3" />
+                        در انتظار تأیید مدیریت — پس از تأیید عمومی نمایش داده می‌شود.
+                      </p>
+                    )}
+                    {b.status === "suspended" && (
+                      <p className="mt-1.5 flex items-center gap-1 text-[11px] font-medium text-rose-600">
+                        <Info className="h-3 w-3" />
+                        کسب‌وکار شما تعلیق شده است.
+                        {b.reviewNote ? ` یادداشت: ${b.reviewNote}` : ""}
+                      </p>
+                    )}
                   </div>
                 </div>
                 <div className="flex shrink-0 flex-wrap items-center gap-2">
+                  <button
+                    onClick={() => setCardFor(b)}
+                    className="inline-flex items-center gap-1.5 rounded-lg bg-violet-600 px-3 py-2 text-xs font-bold text-white transition-colors hover:bg-violet-700"
+                  >
+                    <CreditCard className="h-3.5 w-3.5" />
+                    کارت ویزیت
+                  </button>
                   <Link
                     href={`/business/${b.slug}`}
                     className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-2 text-xs font-bold text-ink transition-colors hover:bg-slate-50"
@@ -383,6 +501,122 @@ export function OwnerDashboard({
                     ویرایش
                   </button>
                 </div>
+              </div>
+
+              {/* اشتراک / ویترین حرفه‌ای */}
+              <div className="border-t border-slate-100 px-5 py-3.5">
+                {b.subscription ? (
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="inline-flex items-center gap-1.5 rounded-full bg-violet-50 px-3 py-1.5 text-xs font-bold text-violet-700 ring-1 ring-inset ring-violet-200">
+                      <Crown className="h-3.5 w-3.5" />
+                      اشتراک {b.subscription.plan?.name ?? ""} فعال است
+                    </span>
+                    {b.subscription.endsAt && (
+                      <span className="text-xs text-slate-500">
+                        تا{" "}
+                        {toFa(new Date(b.subscription.endsAt).toLocaleDateString("fa-IR"))}
+                      </span>
+                    )}
+                  </div>
+                ) : b.latestSubscription?.status === "pending" ? (
+                  <p className="flex items-center gap-1.5 text-xs font-medium text-amber-600">
+                    <Hourglass className="h-3.5 w-3.5" />
+                    درخواست اشتراک شما در انتظار بررسی مدیریت است.
+                  </p>
+                ) : (
+                  <div>
+                    {subFor !== b.id && (
+                      <button
+                        onClick={() => {
+                          setSubFor(b.id);
+                          setSubError(null);
+                          setSubDone(null);
+                          setSubPlan("");
+                          setSubReferral("");
+                        }}
+                        className="inline-flex items-center gap-1.5 rounded-lg bg-violet-50 px-3 py-2 text-xs font-bold text-violet-700 ring-1 ring-inset ring-violet-200 transition-colors hover:bg-violet-100"
+                      >
+                        <Crown className="h-3.5 w-3.5" />
+                        فعال‌سازی ویترین حرفه‌ای (اشتراک)
+                      </button>
+                    )}
+                    {subDone && (
+                      <p className="mt-2 rounded-lg bg-emerald-50 px-3 py-2 text-xs font-medium leading-6 text-emerald-700 ring-1 ring-emerald-200">
+                        {subDone}
+                      </p>
+                    )}
+                    {subFor === b.id && (
+                      <div className="mt-3 rounded-xl bg-slate-50 p-4 ring-1 ring-slate-200">
+                        <p className="text-xs font-bold text-ink">
+                          انتخاب پلن اشتراک
+                        </p>
+                        <div className="mt-2 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+                          {plans
+                            .filter((p) => p.priceMonthly > 0)
+                            .map((p) => (
+                              <label
+                                key={p.id}
+                                className={`flex cursor-pointer flex-col gap-1 rounded-xl border p-3 transition-colors ${
+                                  subPlan === String(p.id)
+                                    ? "border-primary bg-primary-50"
+                                    : "border-slate-200 bg-white hover:border-slate-300"
+                                }`}
+                              >
+                                <span className="flex items-center justify-between text-xs font-extrabold text-ink">
+                                  {p.name}
+                                  <input
+                                    type="radio"
+                                    name="plan"
+                                    value={p.id}
+                                    checked={subPlan === String(p.id)}
+                                    onChange={() => setSubPlan(String(p.id))}
+                                    className="h-4 w-4 accent-primary"
+                                  />
+                                </span>
+                                <span className="text-[11px] font-bold text-slate-500">
+                                  {toFa(p.priceMonthly.toLocaleString("en-US"))} تومان /
+                                  ماه
+                                </span>
+                              </label>
+                            ))}
+                        </div>
+                        <label className="mt-3 block">
+                          <span className="mb-1 block text-[11px] font-bold text-slate-500">
+                            کد معرفی طراح (اختیاری)
+                          </span>
+                          <input
+                            value={subReferral}
+                            onChange={(e) => setSubReferral(e.target.value)}
+                            className="input"
+                            dir="ltr"
+                            placeholder="مثلاً arash20"
+                          />
+                        </label>
+                        {subError && (
+                          <p className="mt-2 rounded-lg bg-rose-50 px-3 py-2 text-xs font-medium text-rose-700 ring-1 ring-rose-200">
+                            {subError}
+                          </p>
+                        )}
+                        <div className="mt-3 flex gap-2">
+                          <button
+                            onClick={() => requestSubscription(b.id)}
+                            disabled={subBusy}
+                            className="inline-flex items-center gap-1.5 rounded-xl bg-primary px-4 py-2.5 text-xs font-bold text-white transition-transform hover:scale-[1.02] disabled:opacity-60"
+                          >
+                            <Check className="h-3.5 w-3.5" />
+                            ثبت درخواست اشتراک
+                          </button>
+                          <button
+                            onClick={() => setSubFor(null)}
+                            className="rounded-xl px-4 py-2.5 text-xs font-bold text-slate-500 hover:bg-slate-200"
+                          >
+                            انصراف
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
 
               <button
@@ -425,6 +659,17 @@ export function OwnerDashboard({
           );
         })}
       </div>
+
+      {/* مودال کارت‌ویزیت‌ساز */}
+      <AnimatePresence>
+        {cardFor && (
+          <CardBuilder
+            business={cardFor}
+            open={Boolean(cardFor)}
+            onClose={() => setCardFor(null)}
+          />
+        )}
+      </AnimatePresence>
 
       {/* مودال فرم کسب‌وکار */}
       <AnimatePresence>
@@ -636,7 +881,7 @@ function MiniTag({
   tone,
 }: {
   children: React.ReactNode;
-  tone: "primary" | "emerald" | "sky" | "amber" | "violet";
+  tone: "primary" | "emerald" | "sky" | "amber" | "violet" | "rose";
 }) {
   const tones: Record<string, string> = {
     primary: "bg-primary-50 text-primary-700 ring-primary-200",
@@ -644,12 +889,25 @@ function MiniTag({
     sky: "bg-sky-50 text-sky-700 ring-sky-200",
     amber: "bg-amber-50 text-amber-700 ring-amber-200",
     violet: "bg-violet-50 text-violet-700 ring-violet-200",
+    rose: "bg-rose-50 text-rose-700 ring-rose-200",
   };
   return (
     <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ring-1 ring-inset ${tones[tone]}`}>
       {children}
     </span>
   );
+}
+
+function StatusMiniTag({ status }: { status: string }) {
+  const map: Record<string, { label: string; tone: "emerald" | "amber" | "rose" | "violet" }> = {
+    pending: { label: "در انتظار تأیید", tone: "amber" },
+    active: { label: "فعال", tone: "emerald" },
+    suspended: { label: "تعلیق‌شده", tone: "rose" },
+    rejected: { label: "ردشده", tone: "rose" },
+  };
+  const def = map[status];
+  if (!def || status === "active") return null;
+  return <MiniTag tone={def.tone}>{def.label}</MiniTag>;
 }
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {

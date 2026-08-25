@@ -1,0 +1,133 @@
+import { NextResponse } from "next/server";
+import { db } from "@/db";
+import { admins } from "@/db/schema";
+import { eq } from "drizzle-orm";
+import { verifyPassword, setAdminSession, signToken, verifyToken } from "@/lib/auth";
+import { rateLimit, clientKey } from "@/lib/rate-limit";
+import { isValidEmail, cleanText } from "@/lib/validate";
+import { logAudit } from "@/lib/audit";
+import { verifyTotp } from "@/lib/otp";
+
+export const dynamic = "force-dynamic";
+
+const ip = (request: Request) =>
+  request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? undefined;
+
+/**
+ * ورود مدیریت — دومرحله‌ای:
+ * مرحله ۱: ایمیل + رمز → توکن چالشِ امضاشده (۵ دقیقه اعتبار)
+ * مرحله ۲: کد TOTP (اگر 2FA فعال باشد) → سشن نهایی
+ */
+export async function POST(request: Request) {
+  const rl = rateLimit(clientKey(request, "admin-login"), {
+    limit: 8,
+    windowMs: 15 * 60 * 1000,
+  });
+  if (!rl.allowed) {
+    return NextResponse.json(
+      { error: `تلاش‌های ناموفق زیاد است. ${rl.retryAfterSec} ثانیه دیگر دوباره تلاش کنید.` },
+      { status: 429 }
+    );
+  }
+
+  let body: { step?: string; email?: string; password?: string; code?: string; challenge?: string };
+  try {
+    body = await request.json();
+  } catch {
+    return NextResponse.json({ error: "درخواست نامعتبر است." }, { status: 400 });
+  }
+
+  const step = body.step === "verify" ? "verify" : "credentials";
+
+  if (step === "verify") {
+    const code = cleanText(body.code, 10);
+    const challenge = String(body.challenge ?? "");
+    const payload = verifyToken<{ aid: number }>(challenge);
+    if (!payload || !payload.aid || !/^\d{6}$/.test(code)) {
+      return NextResponse.json(
+        { error: "کد نامعتبر یا منقضی است. دوباره وارد شوید." },
+        { status: 401 }
+      );
+    }
+    const [admin] = await db
+      .select()
+      .from(admins)
+      .where(eq(admins.id, payload.aid))
+      .limit(1);
+    if (!admin || !admin.active) {
+      return NextResponse.json({ error: "حساب غیرفعال است." }, { status: 403 });
+    }
+    if (!admin.totpEnabled || !admin.totpSecret) {
+      return NextResponse.json({ error: "درخواست نامعتبر است." }, { status: 400 });
+    }
+    if (!(await verifyTotp(code, admin.totpSecret))) {
+      await logAudit({
+        actorType: "admin",
+        actorName: admin.email,
+        action: "admin.totp_failed",
+        target: `admin:${admin.id}`,
+        ip: ip(request),
+      });
+      return NextResponse.json({ error: "کد دومرحله‌ای نادرست است." }, { status: 401 });
+    }
+    await setAdminSession(admin.id, true);
+    await logAudit({
+      actorType: "admin",
+      actorId: admin.id,
+      actorName: admin.email,
+      action: "admin.login",
+      target: `admin:${admin.id}`,
+      ip: ip(request),
+    });
+    return NextResponse.json({ ok: true });
+  }
+
+  // مرحله ۱: اعتبارسنجی ایمیل و رمز
+  const email = cleanText(body.email, 190).toLowerCase();
+  const password = String(body.password ?? "");
+  if (!isValidEmail(email) || !password) {
+    return NextResponse.json(
+      { error: "ایمیل و رمز عبور را وارد کنید." },
+      { status: 400 }
+    );
+  }
+
+  const [admin] = await db
+    .select()
+    .from(admins)
+    .where(eq(admins.email, email))
+    .limit(1);
+
+  if (!admin || !verifyPassword(password, admin.passwordHash)) {
+    await logAudit({
+      actorType: "admin",
+      actorName: email,
+      action: "admin.login_failed",
+      target: `admin:${email}`,
+      ip: ip(request),
+    });
+    return NextResponse.json(
+      { error: "ایمیل یا رمز عبور نادرست است." },
+      { status: 401 }
+    );
+  }
+  if (!admin.active) {
+    return NextResponse.json({ error: "حساب شما غیرفعال است." }, { status: 403 });
+  }
+
+  if (admin.totpEnabled && admin.totpSecret) {
+    const challenge = signToken({ aid: admin.id, exp: Date.now() + 5 * 60 * 1000 });
+    return NextResponse.json({ ok: true, needTotp: true, challenge });
+  }
+
+  await setAdminSession(admin.id, true);
+  await logAudit({
+    actorType: "admin",
+    actorId: admin.id,
+    actorName: admin.email,
+    action: "admin.login",
+    target: `admin:${admin.id}`,
+    ip: ip(request),
+  });
+  return NextResponse.json({ ok: true });
+}

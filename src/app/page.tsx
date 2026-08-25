@@ -12,13 +12,16 @@ import {
   Star,
   Quote,
   Navigation,
+  CheckCircle2,
 } from "lucide-react";
 import {
   getCategories,
   getCities,
   getFeaturedBusinesses,
+  getPlans,
   getStats,
 } from "@/lib/queries";
+import { formatPrice, toFa } from "@/lib/utils";
 import { SearchBar } from "@/components/search-bar";
 import { BusinessCard } from "@/components/business-card";
 import { SectionHeading } from "@/components/section-heading";
@@ -29,11 +32,12 @@ import { CategoryIcon, CATEGORY_COLORS } from "@/components/category-icon";
 export const dynamic = "force-dynamic";
 
 export default async function HomePage() {
-  const [categories, cities, featured, stats] = await Promise.all([
+  const [categories, cities, featured, stats, plans] = await Promise.all([
     getCategories(),
     getCities(),
     getFeaturedBusinesses(6),
     getStats(),
+    getPlans(),
   ]);
 
   const heroChips = categories.slice(0, 6);
@@ -324,8 +328,82 @@ export default async function HomePage() {
         </div>
       </section>
 
-      {/* ============ فراخوان صاحبان کسب‌وکار ============ */}
+      {/* ============ پلن‌های اشتراک ============ */}
       <section id="pricing" className="container-px mx-auto max-w-7xl py-16">
+        <SectionHeading
+          eyebrow="مدل اشتراک"
+          title="ویترین حرفه‌ای با پلن‌های منعطف"
+          desc="بدون اشتراک هم پروفایل، کارت معرفی و QR دارید؛ با فعال‌سازی اشتراک، ویترین حرفه‌ای شما فعال می‌شود."
+        />
+        <Stagger className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {plans.map((p) => (
+            <StaggerItem key={p.id}>
+              <div
+                className={`card card-hover flex h-full flex-col p-6 ${
+                  p.priceMonthly === 0 ? "" : "border-primary-200"
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <h3 className="text-base font-extrabold text-ink">{p.name}</h3>
+                  {p.priceMonthly === 0 ? (
+                    <span className="rounded-full bg-emerald-50 px-3 py-1 text-[11px] font-bold text-emerald-700 ring-1 ring-inset ring-emerald-200">
+                      رایگان
+                    </span>
+                  ) : (
+                    <span className="rounded-full bg-primary-50 px-3 py-1 text-[11px] font-bold text-primary-700 ring-1 ring-inset ring-primary-100">
+                      پرفروش
+                    </span>
+                  )}
+                </div>
+                <p className="mt-4">
+                  {p.priceMonthly === 0 ? (
+                    <span className="text-2xl font-black text-ink">۰ تومان</span>
+                  ) : (
+                    <>
+                      <span className="text-2xl font-black text-ink">
+                        {toFa(formatPrice(p.priceMonthly))}
+                      </span>
+                      <span className="mr-1 text-xs text-slate-400">تومان / ماه</span>
+                    </>
+                  )}
+                </p>
+                <ul className="mt-5 flex-1 space-y-2.5">
+                  {(() => {
+                    try {
+                      const features = JSON.parse(p.features ?? "[]") as string[];
+                      return features.map((f) => (
+                        <li
+                          key={f}
+                          className="flex items-start gap-2 text-xs leading-6 text-slate-600"
+                        >
+                          <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+                          {f}
+                        </li>
+                      ));
+                    } catch {
+                      return null;
+                    }
+                  })()}
+                </ul>
+                <Link
+                  href="/owner"
+                  className={`mt-6 inline-flex items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-bold transition-transform hover:scale-[1.02] ${
+                    p.priceMonthly === 0
+                      ? "border border-slate-200 text-ink hover:bg-slate-50"
+                      : "bg-primary text-white shadow-lg shadow-primary-600/25"
+                  }`}
+                >
+                  شروع کن
+                  <ArrowLeft className="h-4 w-4" />
+                </Link>
+              </div>
+            </StaggerItem>
+          ))}
+        </Stagger>
+      </section>
+
+      {/* ============ فراخوان صاحبان کسب‌وکار ============ */}
+      <section className="container-px mx-auto max-w-7xl pb-16">
         <Reveal>
           <div className="relative overflow-hidden rounded-3xl bg-gradient-to-bl from-primary-700 via-primary-600 to-primary-500 p-8 text-white shadow-2xl shadow-primary-700/20 sm:p-12">
             <div className="bg-dots absolute inset-0 opacity-10" />
@@ -337,8 +415,8 @@ export default async function HomePage() {
                 </h2>
                 <p className="mt-3 text-sm leading-7 text-primary-50">
                   پس از ثبت‌نام و دریافت تأییدیه، پنل مدیریت اختصاصی برای معرفی
-                  کسب‌وکار، مدیریت ویترین، قیمت‌ها و اطلاعات تماس در اختیار شما
-                  قرار می‌گیرد.
+                  کسب‌وکار، مدیریت ویترین، کارت‌ویزیت‌ساز، قیمت‌ها و اطلاعات تماس
+                  در اختیار شما قرار می‌گیرد.
                 </p>
               </div>
               <Link
