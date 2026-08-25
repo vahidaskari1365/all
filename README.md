@@ -23,7 +23,22 @@ npm run dev
 
 باز کنید: <http://localhost:3000>
 
-> برای تولید، به‌جای PGlite یک PostgreSQL واقعی ست کنید: `DATABASE_URL` را در فایل `.env` (کپی از `.env.example`) بگذارید و همان `npm run db:migrate && npm run db:seed` را اجرا کنید. در production نبودِ `DATABASE_URL` با خطای صریح متوقف می‌شود (نه نمایش خاموشِ داده خالی).
+> برای تولید، به‌جای PGlite یک PostgreSQL واقعی ست کنید: `DATABASE_URL` را در فایل `.env` (کپی از `.env.example`) بگذارید و همان `npm run db:migrate && npm run db:seed` را اجرا کنید. در production نبودِ `DATABASE_URL` مانع بیلد نمی‌شود، اما اولین کوئری با خطای صریح متوقف می‌شود (نه نمایش خاموشِ داده خالی).
+
+### استقرار در Vercel
+
+1. یک دیتابیس PostgreSQL واقعی بسازید (Neon، Supabase یا Vercel Postgres).
+2. در تنظیمات پروژه Vercel این متغیرها را ست کنید:
+   - `DATABASE_URL` — آدرس دیتابیس مرحله ۱ (اجباری)
+   - `AUTH_SECRET` — یک رشته تصادفی طولانی برای امضای سشن‌ها (اجباری)
+   - `NEXT_PUBLIC_SITE_URL` — آدرس نهایی سایت، مثلاً `https://kasbyab.ir`
+3. جداول و داده‌های اولیه را روی همان دیتابیس اعمال کنید (یک‌بار، از لوکال):
+   ```bash
+   DATABASE_URL=postgresql://... npm run db:migrate
+   DATABASE_URL=postgresql://... npm run db:seed
+   ```
+4. Deploy کنید — بیلد بدون `DATABASE_URL` هم موفق است؛ فقط در زمان اجرا
+   دیتابیس لازم است.
 
 ### حساب‌های آزمایشی
 
