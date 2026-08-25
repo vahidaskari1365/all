@@ -23,7 +23,7 @@ npm run dev
 
 باز کنید: <http://localhost:3000>
 
-> برای تولید، به‌جای PGlite یک PostgreSQL واقعی ست کنید: `DATABASE_URL` را در فایل `.env` (کپی از `.env.example`) بگذارید و همان `npm run db:migrate && npm run db:seed` را اجرا کنید. در production نبودِ `DATABASE_URL` مانع بیلد نمی‌شود، اما اولین کوئری با خطای صریح متوقف می‌شود (نه نمایش خاموشِ داده خالی).
+> برای تولید، به‌جای PGlite یک PostgreSQL واقعی ست کنید: `DATABASE_URL` را در فایل `.env` (کپی از `.env.example`) بگذارید و همان `npm run db:migrate && npm run db:seed` را اجرا کنید. در production نبودِ `DATABASE_URL` مانع بیلد نمی‌شود؛ صفحات عمومی به‌جای نمایش خطای سراسری، با داده خالی و یک هشدار در لاگ به‌صورت امن باز می‌شوند (عملیات نوشتن مثل ثبت‌نام/ورود همچنان خطای صریح می‌دهند).
 
 ### استقرار در Vercel
 
