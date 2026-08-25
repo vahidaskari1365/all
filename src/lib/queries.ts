@@ -113,8 +113,8 @@ async function safeRead<T>(fallback: T, fn: () => Promise<T>): Promise<T> {
 }
 
 export async function getCategories(): Promise<CategoryRow[]> {
-  return safeRead<CategoryRow[]>([], async () => {
-    const rows = await db
+  const rows = await safeRead<CategoryRow[]>([], async () => {
+    return db
       .select({
         id: categories.id,
         name: categories.name,
@@ -124,13 +124,19 @@ export async function getCategories(): Promise<CategoryRow[]> {
       })
       .from(categories)
       .orderBy(asc(categories.name));
-    return rows;
   });
+  // اگر دیتابیس در دسترس نبود یا خالی بود، دسته‌بندی‌های پیش‌فرض
+  // (مثل قبل) نمایش داده شوند تا صفحه اول سایت خالی نماند.
+  if (rows.length === 0) {
+    const { FALLBACK_CATEGORIES } = await import("@/lib/fallback-data");
+    return FALLBACK_CATEGORIES;
+  }
+  return rows;
 }
 
 export async function getCities(): Promise<CityRow[]> {
-  return safeRead<CityRow[]>([], async () => {
-    const rows = await db
+  const rows = await safeRead<CityRow[]>([], async () => {
+    return db
       .select({
         id: cities.id,
         name: cities.name,
@@ -139,8 +145,12 @@ export async function getCities(): Promise<CityRow[]> {
       })
       .from(cities)
       .orderBy(asc(cities.name));
-    return rows;
   });
+  if (rows.length === 0) {
+    const { FALLBACK_CITIES } = await import("@/lib/fallback-data");
+    return FALLBACK_CITIES;
+  }
+  return rows;
 }
 
 export function enrichBusinesses(
@@ -307,7 +317,20 @@ export async function getStats() {
         categories: cat?.count ?? 0,
       };
     }
-  );
+  ).then(async (s) => {
+    // هماهنگ با فهرست‌های پشتیبان: آمار صفر نمایش داده نشود.
+    if (s.categories === 0 || s.cities === 0) {
+      const { FALLBACK_CATEGORIES, FALLBACK_CITIES } = await import(
+        "@/lib/fallback-data"
+      );
+      return {
+        ...s,
+        categories: s.categories || FALLBACK_CATEGORIES.length,
+        cities: s.cities || FALLBACK_CITIES.length,
+      };
+    }
+    return s;
+  });
 }
 
 // ────────────────────────────────────────────────────────────
