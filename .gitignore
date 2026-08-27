@@ -6,3 +6,15 @@ node_modules/
 .env.production
 *.tsbuildinfo
 next-env.d.ts
+
+# data dirs & backend runtime
+.data/
+backend/storage/app/*
+!backend/storage/app/public/.gitkeep
+backend/storage/logs/*
+backend/storage/framework/cache/*
+backend/storage/framework/sessions/*
+backend/storage/framework/views/*
+backend/storage/framework/testing/*
+backend/storage/oauth-*.key
+!.gitkeep

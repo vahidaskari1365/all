@@ -1,0 +1,4 @@
+# نمونه crontab برای سرور تولیدی
+0 2 * * * /srv/kasbyab/ops/backup.sh >> /var/log/kasbyab-backup.log 2>&1
+# (اگر schedule:work را جدا اجرا نمی‌کنید)
+# * * * * * cd /srv/kasbyab/backend && php artisan schedule:run >> /dev/null 2>&1
